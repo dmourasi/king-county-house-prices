@@ -1,0 +1,491 @@
+---
+title: "Análise Exploratória — Preços de Imóveis (King County / Seattle)"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-summary: "mostrar código"
+    embed-resources: true
+    theme: flatly
+execute:
+  warning: false
+  message: false
+---
+
+```{=html}
+<style>
+.cell-output-display table { display: block; overflow-x: auto; white-space: nowrap; }
+</style>
+```
+
+```{r setup}
+library(tidyverse)
+library(janitor)
+library(skimr)
+library(corrplot)
+library(GGally)
+library(car)
+library(moments)
+library(scales)
+library(patchwork)
+
+theme_set(theme_minimal(base_size = 11))
+options(scipen = 999)
+```
+
+## 1. Carga e preparação dos dados
+
+```{r load}
+casas <- read_csv("../data/kc_house_data.csv", show_col_types = FALSE) |>
+  clean_names() |>
+  mutate(
+    id      = as.character(id),
+    date    = as.Date(date, format = "%Y%m%dT%H%M%S"),
+    zipcode = as.character(zipcode),
+    waterfront = as.integer(waterfront),
+    view       = as.integer(view),
+    condition  = as.integer(condition),
+    grade      = as.integer(grade)
+  )
+
+demograf <- read_csv("../data/zipcode_demographics.csv", show_col_types = FALSE) |>
+  clean_names() |>
+  mutate(zipcode = as.character(zipcode))
+
+futuro <- read_csv("../data/future_unseen_examples.csv", show_col_types = FALSE) |>
+  clean_names() |>
+  mutate(zipcode = as.character(zipcode))
+
+dim(casas)
+dim(demograf)
+dim(futuro)
+```
+
+`kc_house_data.csv` tem `r nrow(casas)` linhas e `r ncol(casas)` colunas. `zipcode_demographics.csv` tem `r nrow(demograf)` CEPs distintos. `future_unseen_examples.csv` tem `r nrow(futuro)` imóveis a prever, com as mesmas colunas de `casas` exceto `id`, `date` e `price`.
+
+### O que representam as principais variáveis
+
+- **price**: preço de venda do imóvel (target).
+- **bedrooms / bathrooms**: nº de quartos e banheiros (banheiros em fração, ex.: 2.25, porque contam lavabo/meio-banheiro como fração).
+- **sqft_living / sqft_lot**: área construída e área do lote (em pés²).
+- **sqft_above / sqft_basement**: área acima do solo e do porão — devem somar `sqft_living`.
+- **floors**: nº de andares.
+- **waterfront**: indicador binário de vista para água.
+- **view**: índice ordinal (0–4) de qualidade da vista.
+- **condition**: índice ordinal (1–5) do estado de conservação.
+- **grade**: índice ordinal (1–13) do padrão construtivo/acabamento (proxy de qualidade).
+- **yr_built / yr_renovated**: ano de construção e de reforma (0 = nunca reformado).
+- **zipcode / lat / long**: localização.
+- **sqft_living15 / sqft_lot15**: área média de construção/lote dos 15 vizinhos mais próximos (proxy de "vizinhança").
+- **zipcode_demographics**: agregados populacionais, de renda e de escolaridade por CEP.
+
+## 2. Estatística descritiva completa
+
+Antes de qualquer análise mais elaborada, quero a fotografia numérica completa de cada variável: tendência central (média, mediana, moda), dispersão (desvio padrão, variância, amplitude, IQR, coeficiente de variação), forma da distribuição (assimetria, curtose) e os quartis. Não só para preencher uma tabela — cada uma dessas estatísticas vai orientar uma decisão diferente mais adiante (transformação, tratamento de outlier, escolha de modelo).
+
+```{r funcao-descritiva}
+moda_estat <- function(x) {
+  x <- x[!is.na(x)]
+  freq <- table(x)
+  as.numeric(names(freq)[which.max(freq)])
+}
+
+tabela_descritiva <- function(df, vars) {
+  df |>
+    select(all_of(vars)) |>
+    summarise(across(everything(), list(
+      n           = ~sum(!is.na(.x)),
+      ausentes    = ~sum(is.na(.x)),
+      pct_ausente = ~mean(is.na(.x)) * 100,
+      media       = ~mean(.x, na.rm = TRUE),
+      mediana     = ~median(.x, na.rm = TRUE),
+      moda        = ~moda_estat(.x),
+      dp          = ~sd(.x, na.rm = TRUE),
+      variancia   = ~var(.x, na.rm = TRUE),
+      amplitude   = ~diff(range(.x, na.rm = TRUE)),
+      iqr         = ~IQR(.x, na.rm = TRUE),
+      cv_pct      = ~(sd(.x, na.rm = TRUE) / mean(.x, na.rm = TRUE)) * 100,
+      assimetria  = ~skewness(.x, na.rm = TRUE),
+      curtose     = ~kurtosis(.x, na.rm = TRUE),
+      minimo      = ~min(.x, na.rm = TRUE),
+      q1          = ~unname(quantile(.x, 0.25, na.rm = TRUE)),
+      q3          = ~unname(quantile(.x, 0.75, na.rm = TRUE)),
+      maximo      = ~max(.x, na.rm = TRUE)
+    ), .names = "{.col}__{.fn}")) |>
+    pivot_longer(everything(), names_to = c("variavel", "estatistica"), names_sep = "__") |>
+    pivot_wider(names_from = estatistica, values_from = value) |>
+    select(variavel, n, ausentes, pct_ausente, media, mediana, moda, dp, variancia,
+           amplitude, iqr, cv_pct, assimetria, curtose, minimo, q1, q3, maximo) |>
+    mutate(across(where(is.numeric), ~round(.x, 2))) |>
+    arrange(desc(abs(assimetria)))
+}
+
+vars_descritivas <- c("price", "bedrooms", "bathrooms", "sqft_living", "sqft_lot", "floors",
+                       "waterfront", "view", "condition", "grade", "sqft_above", "sqft_basement",
+                       "yr_built", "yr_renovated", "lat", "long", "sqft_living15", "sqft_lot15")
+
+tabela_kc <- tabela_descritiva(casas, vars_descritivas)
+knitr::kable(tabela_kc)
+```
+
+Deixei de fora `id` (identificador, não é medida), `date` (não é numérica) e `zipcode` (é um código categórico de localização, não uma quantidade — calcular média de zipcode não tem significado nenhum). Ordenei a tabela por assimetria absoluta, do mais distorcido para o mais simétrico, porque é isso que eu quero ver primeiro numa tabela dessas.
+
+Duas ressalvas sobre colunas que calculei mas que não têm leitura válida para toda variável:
+
+- **Moda**: calculada como o valor mais frequente. Para variáveis discretas/ordinais (`bedrooms`, `bathrooms`, `floors`, `grade`, `condition`, `view`, `waterfront`) isso é diretamente interpretável — é literalmente "o valor mais comum". Para variáveis quase-contínuas (`price`, `sqft_living`, `sqft_lot`, `lat`, `long`) a moda é só o valor que por acaso mais se repetiu, e não deve ser lida como "o valor típico" da forma que a mediana é — a mediana é a medida de tendência central confiável para essas.
+- **Coeficiente de variação**: só faz sentido para variáveis de escala de razão (com zero absoluto real, como `price` ou `sqft_living`). `lat`, `long` e `yr_built` têm zero arbitrário (não existe "ausência de latitude" ou "ausência de ano"), então o CV delas está na tabela por completude, mas não uso para comparar variabilidade entre variáveis.
+
+Alguns pontos que essa tabela deixa claro e que eu não tinha quantificado ainda:
+
+- **Zero ausentes em todas as 18 variáveis** — confirmo aqui de forma explícita o que checagem de `NA` já indicava.
+- `yr_renovated` tem assimetria altíssima porque é essencialmente uma variável "quase binária disfarçada de contínua": a grande maioria dos imóveis nunca foi reformada (`yr_renovated = 0`, e é também a moda), e só uma minoria tem um ano de reforma real. Isso confirma que a decisão que já tinha em mente — transformar isso numa flag `reformado` (0/1) em vez de usar o ano bruto — é a escolha certa, e não só uma simplificação por preguiça.
+- `sqft_lot` e `sqft_lot15` têm coeficiente de variação muito mais alto que as variáveis de área construída (`sqft_living`, `sqft_above`) — o tamanho do lote varia proporcionalmente muito mais entre os imóveis do que o tamanho da casa em si. Coerente com King County ter tanto lotes urbanos pequenos quanto propriedades rurais grandes na mesma base.
+- O IQR de `price` me dá uma noção de dispersão mais robusta a outliers do que o desvio padrão — vou usar essa referência mais adiante para julgar o que é outlier de fato.
+- `waterfront` tem assimetria alta simplesmente porque é um evento raro (poucos imóveis com vista para água) — não é um problema de dado, é a própria natureza binária desbalanceada da variável.
+
+### Visualizando a forma das distribuições
+
+A tabela dá os números; aqui quero ver a forma. Para cada variável, a linha vermelha tracejada é a média e a verde é a mediana — quanto mais afastadas uma da outra, mais assimétrica a distribuição (é a mesma informação da coluna `assimetria`, só que visual).
+
+```{r histogramas-densidade}
+vars_hist <- c("price", "sqft_living", "sqft_lot", "bathrooms", "bedrooms", "grade")
+
+plots_hist <- map(vars_hist, function(v) {
+  m  <- mean(casas[[v]])
+  md <- median(casas[[v]])
+  ggplot(casas, aes(.data[[v]])) +
+    geom_histogram(aes(y = after_stat(density)), bins = 40, fill = "grey75", color = "white") +
+    geom_density(color = "steelblue", linewidth = 0.6) +
+    geom_vline(xintercept = m, color = "firebrick", linetype = "dashed") +
+    geom_vline(xintercept = md, color = "darkgreen", linetype = "dashed") +
+    labs(title = v, x = NULL, y = NULL)
+})
+
+wrap_plots(plots_hist, ncol = 3)
+```
+
+`price`, `sqft_living` e `sqft_lot` mostram claramente a cauda longa à direita (média puxada para a direita da mediana pelos imóveis mais caros/maiores). `bathrooms`, `bedrooms` e `grade` já são bem mais simétricas e próximas de um formato de sino, o que bate com a assimetria baixa delas na tabela.
+
+## 3. Distribuição das variáveis ordinais/categóricas
+
+Média, moda e assimetria descrevem razoavelmente bem uma variável contínua, mas para uma ordinal com poucos níveis (`waterfront`, `view`, `condition`, `grade`) a tabela de frequência por nível é mais informativa do que qualquer estatística resumida sozinha — quero ver a forma real da distribuição, não só um número que a resume.
+
+```{r freq-ordinais}
+freq_categorica <- function(df, var) {
+  df |>
+    count(valor = .data[[var]], name = "n") |>
+    mutate(
+      pct           = n / sum(n) * 100,
+      pct_acumulado = cumsum(pct),
+      variavel      = var,
+      .before = 1
+    )
+}
+
+vars_ordinais <- c("waterfront", "view", "condition", "grade")
+tabela_freq <- map_dfr(vars_ordinais, ~freq_categorica(casas, .x))
+knitr::kable(tabela_freq, digits = 1)
+```
+
+```{r freq-ordinais-grafico}
+casas |>
+  select(all_of(vars_ordinais)) |>
+  pivot_longer(everything()) |>
+  count(name, value) |>
+  ggplot(aes(factor(value), n)) +
+  geom_col(fill = "steelblue") +
+  facet_wrap(~name, scales = "free") +
+  labs(x = NULL, y = "contagem de imóveis")
+```
+
+Essa tabela explica por que `waterfront` teve assimetria tão alta na seção 2: 99,2% dos imóveis são `0`, só 0,8% (163 casas) têm vista para água — desbalanceamento extremo de classes, não um problema de dado. `condition` e `grade` se concentram fortemente em poucos níveis centrais (64,9% dos imóveis estão em `condition = 3`; `grade = 7` e `8` somam 69,7% sozinhos), e nos extremos a amostra fica perigosamente pequena: `grade = 1` tem **uma única observação** e `grade = 3` tem só **três** — não dá para estimar um efeito confiável para esses níveis isoladamente. Na modelagem, vou considerar agrupar os graus mais raros (1, 3, 4) com o vizinho mais próximo em vez de deixar o modelo tentar aprender um coeficiente/split para uma classe com n=1.
+
+## 4. Qualidade dos dados
+
+```{r qualidade}
+# duplicidade de id (mesmo imóvel vendido mais de uma vez no período)
+n_ids_dup <- casas |> count(id) |> filter(n > 1) |> nrow()
+
+# valores ausentes
+na_casas <- colSums(is.na(casas))
+na_demograf <- colSums(is.na(demograf))
+
+# consistência sqft_living = sqft_above + sqft_basement
+inconsist_sqft <- casas |>
+  mutate(diff = sqft_living - (sqft_above + sqft_basement)) |>
+  filter(diff != 0) |>
+  nrow()
+
+# cobertura de zipcode entre os dois arquivos
+zip_sem_demografia <- casas |> anti_join(demograf, by = "zipcode") |> distinct(zipcode)
+zip_futuro_sem_demografia <- futuro |> anti_join(demograf, by = "zipcode") |> distinct(zipcode)
+
+list(
+  ids_com_mais_de_uma_venda = n_ids_dup,
+  na_por_coluna_casas       = na_casas[na_casas > 0],
+  na_por_coluna_demograf    = na_demograf[na_demograf > 0],
+  linhas_com_soma_sqft_incorreta = inconsist_sqft,
+  zipcodes_sem_demografia_treino = zip_sem_demografia,
+  zipcodes_sem_demografia_futuro = zip_futuro_sem_demografia
+)
+```
+
+Não há valores ausentes em nenhum dos dois arquivos, e todos os CEPs de `casas` e de `futuro` têm correspondência em `zipcode_demographics` — o merge por `zipcode` pode ser feito sem gerar `NA`. A identidade `sqft_living = sqft_above + sqft_basement` se confirma em todas as linhas, ou seja, **`sqft_basement` é redundante** dado `sqft_living` e `sqft_above` (correlação perfeita de soma — relevante para a fase de modelagem, para não inflar artificialmente a importância dessas variáveis). `r n_ids_dup` imóveis aparecem mais de uma vez na base (revenda dentro do período de coleta), o que não é erro, mas deve ser lembrado ao fazer split treino/teste para não vazar o mesmo imóvel para os dois lados.
+
+```{r outlier-bedrooms}
+casas |> slice_max(bedrooms, n = 3) |> select(id, bedrooms, bathrooms, sqft_living, price)
+```
+
+O valor de 33 quartos para um imóvel de `r casas |> filter(bedrooms == max(bedrooms)) |> pull(sqft_living)` pés² de área construída é estatisticamente incompatível (seriam ~100 pés² por quarto) e é quase certamente um erro de digitação (provavelmente 3). Trato esse registro como erro de entrada de dados, não como outlier legítimo, e vou excluí-lo (ou corrigi-lo) na etapa de modelagem.
+
+## 5. Distribuição do target (`price`)
+
+```{r target-dist}
+resumo_price <- casas |>
+  summarise(
+    media = mean(price), mediana = median(price), dp = sd(price),
+    minimo = min(price), maximo = max(price),
+    assimetria = skewness(price), curtose = kurtosis(price)
+  )
+resumo_price
+
+set.seed(42)
+shapiro_amostra <- casas |> slice_sample(n = 5000) |> pull(price)
+shapiro.test(shapiro_amostra)
+```
+
+A distribuição de `price` é fortemente assimétrica à direita (assimetria ≈ `r round(resumo_price$assimetria, 2)`, bem acima de 0), com cauda longa de imóveis caros. O teste de Shapiro-Wilk (em amostra de 5.000 observações, já que o teste não roda em n > 5.000) rejeita normalidade com folga. Isso tem consequência direta na modelagem: um modelo linear ajustado em `price` bruto tende a violar homocedasticidade e dar peso desproporcional aos imóveis de alto valor no erro quadrático. Testo a transformação log:
+
+```{r target-log}
+casas <- casas |> mutate(log_price = log(price))
+
+p1 <- ggplot(casas, aes(price)) + geom_histogram(bins = 60) + labs(title = "price")
+p2 <- ggplot(casas, aes(log_price)) + geom_histogram(bins = 60) + labs(title = "log(price)")
+p3 <- ggplot(casas, aes(sample = price)) + stat_qq() + stat_qq_line() + labs(title = "QQ-plot: price")
+p4 <- ggplot(casas, aes(sample = log_price)) + stat_qq() + stat_qq_line() + labs(title = "QQ-plot: log(price)")
+(p1 | p2) / (p3 | p4)
+
+tibble(
+  variavel = c("price", "log_price"),
+  assimetria = c(skewness(casas$price), skewness(casas$log_price)),
+  curtose    = c(kurtosis(casas$price), kurtosis(casas$log_price))
+)
+```
+
+`log(price)` reduz a assimetria de forma substancial e o QQ-plot fica muito mais próximo da reta teórica — ainda não é normal perfeito (ainda há alguma curtose residual e desvio nas caudas), mas é uma melhora clara. **Decisão**: usar `log(price)` como variável-alvo na modelagem, revertendo com `exp()` na hora de reportar previsões em dólares.
+
+## 6. Variáveis numéricas — visão geral
+
+Os números formais (média, mediana, DP, IQR, assimetria etc.) já estão na tabela da seção 2. Aqui uso `skim()` pelo que a tabela anterior não mostra — a forma da distribuição num relance, via os mini-histogramas (`hist`) — e calculo explicitamente os limites de outlier pelo critério de Tukey (1.5×IQR), não só a contagem.
+
+```{r skim}
+casas |>
+  select(bedrooms, bathrooms, sqft_living, sqft_lot, floors, sqft_above,
+         sqft_basement, yr_built, yr_renovated, sqft_living15, sqft_lot15) |>
+  skim()
+```
+
+```{r outliers-iqr}
+detectar_outliers_iqr <- function(x) {
+  q1  <- quantile(x, 0.25, na.rm = TRUE)
+  q3  <- quantile(x, 0.75, na.rm = TRUE)
+  iqr <- q3 - q1
+  tibble(
+    limite_inferior = q1 - 1.5 * iqr,
+    limite_superior = q3 + 1.5 * iqr,
+    n_outliers      = sum(x < (q1 - 1.5 * iqr) | x > (q3 + 1.5 * iqr)),
+    pct_outliers    = mean(x < (q1 - 1.5 * iqr) | x > (q3 + 1.5 * iqr)) * 100
+  )
+}
+
+vars_num <- c("bedrooms", "bathrooms", "sqft_living", "sqft_lot", "floors",
+              "sqft_above", "sqft_basement", "yr_built", "sqft_living15", "sqft_lot15")
+
+map_dfr(vars_num, ~detectar_outliers_iqr(casas[[.x]]) |> mutate(variavel = .x, .before = 1))
+```
+
+```{r boxplots}
+casas |>
+  select(all_of(vars_num)) |>
+  pivot_longer(everything()) |>
+  ggplot(aes(x = name, y = value)) +
+  geom_boxplot(outlier.alpha = 0.3) +
+  facet_wrap(~name, scales = "free") +
+  theme(axis.text.x = element_blank())
+```
+
+O critério de 1.5×IQR sinaliza um número relevante de "outliers" em `sqft_lot`/`sqft_lot15`, mas visualmente isso reflete uma distribuição de cauda longa legítima (lotes rurais/grandes existem de fato em King County), não erro de coleta — diferente do caso dos 33 quartos. Por isso, não trato esses pontos como erro; a estratégia de modelagem (ex.: modelos baseados em árvore, ou log-transform de `sqft_lot`) é mais adequada do que remover esses registros.
+
+## 7. Relações bivariadas com `price`
+
+Antes de olhar correlação variável por variável, quero uma visão conjunta das relações mais fortes — pares de variáveis, cada uma contra as outras, com distribuição e correlação no mesmo painel.
+
+```{r ggpairs}
+casas |>
+  select(price, grade, sqft_living, sqft_living15, bathrooms) |>
+  ggpairs(
+    lower = list(continuous = wrap("points", alpha = 0.12, size = 0.4)),
+    diag  = list(continuous = wrap("densityDiag")),
+    upper = list(continuous = wrap("cor", size = 3))
+  ) +
+  theme_minimal(base_size = 8)
+```
+
+A matriz já deixa visível a relação positiva e razoavelmente linear de `grade` e `sqft_living` com `price`, e a correlação forte entre `sqft_living`/`sqft_living15` entre si (esperado, são quase-duplicatas de vizinhança). Agora com os números formais:
+
+```{r corr-matrix}
+vars_para_corr <- casas |>
+  select(price, log_price, bedrooms, bathrooms, sqft_living, sqft_lot, floors,
+         waterfront, view, condition, grade, sqft_above, sqft_basement,
+         yr_built, yr_renovated, sqft_living15, sqft_lot15)
+
+corr_pearson <- cor(vars_para_corr, method = "pearson")
+corr_spearman <- cor(vars_para_corr, method = "spearman")
+
+corrplot(corr_pearson, method = "color", type = "upper", tl.cex = 0.7,
+         title = "Pearson", mar = c(0, 0, 1, 0))
+```
+
+```{r corr-spearman}
+corrplot(corr_spearman, method = "color", type = "upper", tl.cex = 0.7,
+         title = "Spearman", mar = c(0, 0, 1, 0))
+```
+
+```{r corr-com-target}
+tibble(
+  variavel = colnames(corr_pearson),
+  pearson_log_price  = corr_pearson["log_price", ],
+  spearman_log_price = corr_spearman["log_price", ]
+) |>
+  filter(variavel != "log_price", variavel != "price") |>
+  arrange(desc(abs(pearson_log_price)))
+```
+
+`grade` e `sqft_living` são, de longe, as variáveis mais correlacionadas com `log_price` (tanto em Pearson quanto em Spearman, com valores próximos — indício de relação predominantemente monotônica/linear). `sqft_above` e `sqft_living15` também têm correlação alta, mas isso é esperado dado que são quase-duplicatas de `sqft_living` (ver seção de multicolinearidade). `bedrooms` tem correlação moderada e mais fraca do que se costuma assumir intuitivamente — sinal de que sozinho é um preditor limitado (correlaciona mais com `sqft_living` do que com o preço em si).
+
+```{r scatter-principais}
+p5 <- ggplot(casas, aes(sqft_living, price)) +
+  geom_point(alpha = 0.15) + geom_smooth(method = "loess", formula = y ~ x, color = "firebrick") +
+  scale_y_continuous(labels = label_dollar())
+p6 <- ggplot(casas, aes(factor(grade), price)) +
+  geom_boxplot() + scale_y_continuous(labels = label_dollar()) +
+  labs(x = "grade")
+p5 | p6
+```
+
+```{r categoricas-kruskal}
+for (v in c("waterfront", "view", "condition", "grade")) {
+  teste <- kruskal.test(casas[["log_price"]], factor(casas[[v]]))
+  cat(v, "— Kruskal-Wallis p-valor:", format.pval(teste$p.value, digits = 3), "\n")
+}
+```
+
+Uso o teste de Kruskal-Wallis (em vez de ANOVA clássica) para comparar `log_price` entre os níveis de `waterfront`, `view`, `condition` e `grade`, porque é um teste não-paramétrico que não exige normalidade dos resíduos por grupo — mais adequado aqui, já que mesmo após o log a distribuição não é perfeitamente normal. Todas as quatro variáveis apresentam diferença estatisticamente significativa entre níveis (p ≈ 0), embora isso deva ser lido com cautela: com ~21 mil observações, até efeitos pequenos tendem a ser "significativos" — o boxplot de `grade` acima mostra que o efeito é grande na prática, não só estatisticamente detectável.
+
+## 8. Multicolinearidade
+
+```{r vif-naive}
+#| error: true
+modelo_vif_ingenuo <- lm(log_price ~ bedrooms + bathrooms + sqft_living + sqft_lot + floors +
+                            waterfront + view + condition + grade + sqft_above +
+                            sqft_basement + yr_built + sqft_living15 + sqft_lot15,
+                          data = casas)
+vif(modelo_vif_ingenuo)
+```
+
+Colocando `sqft_living`, `sqft_above` e `sqft_basement` juntas no mesmo modelo, o `vif()` nem consegue rodar — ele retorna erro de "coeficientes colineares" (`aliased coefficients`). Isso não é um bug: é a própria identidade algébrica da seção 4 (`sqft_living = sqft_above + sqft_basement`) se manifestando como colinearidade perfeita, o caso extremo de multicolinearidade. Removendo `sqft_above` do modelo (fico só com `sqft_living` e uma flag de porão), o VIF já roda normalmente:
+
+```{r vif-corrigido}
+casas <- casas |> mutate(tem_porao = as.integer(sqft_basement > 0))
+
+modelo_vif <- lm(log_price ~ bedrooms + bathrooms + sqft_living + sqft_lot + floors +
+                    waterfront + view + condition + grade + tem_porao +
+                    yr_built + sqft_living15 + sqft_lot15,
+                  data = casas)
+vif(modelo_vif) |> sort(decreasing = TRUE)
+```
+
+Sem a duplicata perfeita, os VIFs ficam em uma faixa razoável (a maioria abaixo de 5), com `bathrooms` e `sqft_living` um pouco mais altos por estarem naturalmente correlacionadas com o tamanho geral do imóvel, mas nada que eu considere severo o bastante para descartar alguma delas. `sqft_living15` também não mostra colinearidade preocupante nessa versão do modelo. **Decisão para a modelagem**: manter `sqft_living` como medida de área e usar `tem_porao` (flag binária) no lugar de `sqft_above`/`sqft_basement` brutos.
+
+## 9. Geografia
+
+```{r geo-scatter}
+ggplot(casas, aes(long, lat, color = log_price)) +
+  geom_point(alpha = 0.4, size = 0.8) +
+  scale_color_viridis_c() +
+  coord_fixed(1.3) +
+  labs(title = "Preço (log) por localização", color = "log(price)")
+```
+
+```{r geo-zipcode}
+casas |>
+  group_by(zipcode) |>
+  summarise(preco_mediano = median(price), n = n()) |>
+  arrange(desc(preco_mediano)) |>
+  slice(c(1:10, (n() - 9):n())) |>
+  mutate(grupo = rep(c("10 CEPs mais caros", "10 CEPs mais baratos"), each = 10)) |>
+  ggplot(aes(reorder(zipcode, preco_mediano), preco_mediano, fill = grupo)) +
+  geom_col() +
+  coord_flip() +
+  scale_y_continuous(labels = label_dollar()) +
+  labs(x = "zipcode", y = "preço mediano")
+```
+
+A localização é visivelmente um dos fatores mais fortes: há um gradiente geográfico claro (região central/leste do lago, mais cara), e a diferença de preço mediano entre o CEP mais caro e o mais barato chega a múltiplos de 5–8x. Isso reforça manter `lat`/`long` (ou `zipcode`) como preditores, além de já sinalizar por que os dados demográficos por CEP tendem a ser informativos.
+
+## 10. Dados demográficos por CEP
+
+```{r demografia}
+vars_demograf_todas <- setdiff(names(demograf), "zipcode")
+tabela_demograf <- tabela_descritiva(demograf, vars_demograf_todas)
+knitr::kable(tabela_demograf)
+```
+
+Apliquei a mesma função de estatística descritiva da seção 2 aqui, para manter o mesmo padrão de rigor — em vez de só um resumo visual, quero ver todas as mesmas 14 estatísticas também nas variáveis demográficas. Vale notar que essa tabela é sobre **70 CEPs**, não sobre os 21.613 imóveis — cada linha descreve a variação *entre bairros*, não entre casas.
+
+Reparei em dois grupos bem diferentes de comportamento entre os percentuais, e não é o que eu esperava de cara: os percentuais de **escolaridade** (`per_hsd`, `per_bchlr`, `per_some_clg`, `per_assoc`, `per_prfsnl`) são bem comportados, com assimetria baixa (entre -0,68 e 1,21) — fazem sentido como uma distribuição relativamente contínua de composição educacional entre CEPs. Já `per_urbn`, `per_sbrbn`, `per_farm` e `per_non_farm` estão entre as variáveis **mais assimétricas de toda a tabela** (`per_sbrbn` chega a 5,84 de assimetria, `per_urbn` a -2,97): a mediana de `per_urbn` é 100% — a grande maioria dos CEPs de King County no dataset é essencialmente 100% urbana, e só uma minoria tem qualquer população suburbana/rural. É o mesmo padrão "quase binário disfarçado de contínuo" que já vi em `yr_renovated` na seção 2, só que aqui no nível de CEP em vez de imóvel individual. As variáveis de renda em dólar (`hous_val_amt`, `medn_hshld_incm_amt`, `medn_incm_per_prsn_amt`) ficam num meio-termo, com assimetria moderada (1,75 a 2,26) — puxada por alguns CEPs residenciais de renda bem mais alta que a maioria.
+
+```{r merge-demografia}
+casas_full <- casas |> left_join(demograf, by = "zipcode")
+
+vars_demograf <- c("medn_hshld_incm_amt", "medn_incm_per_prsn_amt", "hous_val_amt",
+                    "per_hsd", "per_some_clg", "per_bchlr", "per_prfsnl")
+
+cor(casas_full$log_price, casas_full[vars_demograf], use = "complete.obs") |>
+  as.data.frame() |>
+  pivot_longer(everything(), names_to = "variavel", values_to = "correlacao_com_log_price") |>
+  arrange(desc(abs(correlacao_com_log_price)))
+```
+
+`hous_val_amt` (valor médio dos imóveis no CEP) e `medn_hshld_incm_amt` (renda mediana domiciliar) aparecem com correlação positiva relevante com `log_price`, assim como `per_bchlr`/`per_prfsnl` (% com ensino superior). Não é surpresa — reforça que os dados demográficos agregam informação além das características físicas do imóvel.
+
+Uma ressalva que preciso deixar clara: os dados demográficos são agregados por CEP e ficam **idênticos para todos os imóveis do mesmo zipcode** depois do merge — ou seja, eles não explicam variação *dentro* de um CEP, só variação *entre* CEPs. A correlação que calculei acima mistura os dois níveis (imóvel e CEP), o que é uma leitura ecológica: um CEP mais rico tende a ter imóveis mais caros em média, mas isso não implica que a renda "causa" o preço no nível do imóvel individual. Na modelagem, vou ter que ter cuidado ao interpretar a importância dessas variáveis, porque o efeito delas fica parcialmente confundido com `zipcode`/`lat`/`long`.
+
+## 11. Consistência com `future_unseen_examples.csv`
+
+```{r comparar-futuro}
+comparar <- function(nome) {
+  tibble(
+    variavel = nome,
+    min_treino = min(casas[[nome]]), max_treino = max(casas[[nome]]),
+    min_futuro = min(futuro[[nome]]), max_futuro = max(futuro[[nome]])
+  )
+}
+
+vars_comuns <- intersect(names(casas), names(futuro))
+map_dfr(setdiff(vars_comuns, c("zipcode")), comparar)
+```
+
+Os valores de `future_unseen_examples.csv` estão dentro (ou muito próximos) do intervalo que observei no treino para todas as variáveis — não vejo indício de *covariate shift* grosseiro que exigiria cuidado extra de extrapolação do modelo.
+
+## 12. O que levo desta análise para a modelagem
+
+- Vou usar `log(price)` como target, revertendo com `exp()` na hora de reportar previsões em dólares — a distribuição bruta é assimétrica demais para um modelo linear se comportar bem.
+- Preciso tratar/excluir o registro de 33 quartos antes de treinar qualquer coisa; é erro de digitação, não informação real.
+- Por causa da redundância `sqft_living = sqft_above + sqft_basement`, não vou usar as três ao mesmo tempo como preditoras — fico com `sqft_living` e, no máximo, uma flag binária de porão.
+- Os preditores que mais se destacaram isoladamente foram `grade`, `sqft_living`, `sqft_living15` e a localização (`lat`/`long`/`zipcode`).
+- As variáveis ordinais/categóricas (`waterfront`, `view`, `condition`, `grade`) mostraram diferença significativa de preço entre níveis no Kruskal-Wallis, então pretendo mantê-las todas como preditoras — mas vou olhar a tabela de frequência da seção 3 de novo se algum nível tiver poucas observações, para não deixar o modelo aprender um efeito instável.
+- Localização parece ser um driver forte e não-linear — `lat`/`long` brutos num modelo linear provavelmente vão underperform; modelos baseados em árvore devem capturar melhor esse padrão.
+- Os dados demográficos agregam informação, mas com efeito confundido com localização (a ressalva ecológica da seção 10) — pretendo comparar o modelo com e sem essas variáveis para medir o ganho incremental real, em vez de simplesmente assumir que ajudam.
+- Não há valores ausentes nem *covariate shift* aparente entre treino e `future_unseen_examples.csv`, então não preciso de tratamento especial de missing/extrapolação nessa etapa.

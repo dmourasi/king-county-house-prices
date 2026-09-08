@@ -1,0 +1,17 @@
+# Quarto build artifacts — os .html finais já são self-contained (embed-resources: true),
+# então o que fica aqui é só cache/figuras intermediárias, não necessário para reproduzir.
+analysis/*_cache/
+analysis/*_files/
+/.quarto/
+
+# R
+.Rhistory
+.Rdata
+.Rproj.user/
+
+# Zip original do desafio — redundante com data/ e README.md (mesmo conteúdo, já extraído)
+Desafio Técnico - GenAI.zip
+
+# OS
+.DS_Store
+Thumbs.db
