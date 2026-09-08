@@ -1,0 +1,269 @@
+---
+title: "Modelagem — Preços de Imóveis (King County / Seattle)"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-summary: "mostrar código"
+    embed-resources: true
+    theme: flatly
+execute:
+  warning: false
+  message: false
+  cache: true
+---
+
+```{r setup}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(scales)
+library(randomForest)
+library(caret)
+library(glmnet)
+library(patchwork)
+
+theme_set(theme_minimal(base_size = 11))
+set.seed(42)
+```
+
+Este notebook parte direto das conclusões da fase de EDA (`01_eda.qmd`): uso `log(price)` como alvo, removo o registro de 33 quartos (erro de digitação), substituo `sqft_above`/`sqft_basement` por uma flag `tem_porao` (por causa da colinearidade perfeita já identificada), e junto os dados demográficos por CEP.
+
+## 1. Preparação do dataset de modelagem
+
+```{r prep}
+casas_raw <- read_csv("../data/kc_house_data.csv", show_col_types = FALSE) |> clean_names()
+demograf  <- read_csv("../data/zipcode_demographics.csv", show_col_types = FALSE) |>
+  clean_names() |>
+  mutate(zipcode = as.character(zipcode))
+
+casas <- casas_raw |>
+  mutate(
+    date    = as.Date(date, format = "%Y%m%dT%H%M%S"),
+    zipcode = as.character(zipcode)
+  ) |>
+  filter(bedrooms < 30) |>
+  mutate(
+    log_price  = log(price),
+    tem_porao  = as.integer(sqft_basement > 0),
+    idade_casa = year(date) - yr_built,
+    reformado  = as.integer(yr_renovated > 0)
+  ) |>
+  left_join(demograf, by = "zipcode")
+
+vars_modelo <- c(
+  "log_price", "bedrooms", "bathrooms", "sqft_living", "sqft_lot", "floors",
+  "waterfront", "view", "condition", "grade", "tem_porao", "idade_casa", "reformado",
+  "lat", "long", "sqft_living15", "sqft_lot15",
+  "medn_hshld_incm_amt", "medn_incm_per_prsn_amt", "hous_val_amt",
+  "per_bchlr", "per_prfsnl"
+)
+
+dados_modelo <- casas |> select(all_of(vars_modelo))
+dim(dados_modelo)
+```
+
+Deixei de fora `id`, `date` e `zipcode` brutos: `id` não carrega informação preditiva, `date` já virou `idade_casa`, e `zipcode` como dummy explodiria em ~70 colunas quando já tenho `lat`/`long` + os agregados demográficos cobrindo o mesmo sinal geográfico de forma mais compacta — decisão que já havia justificado na fase de EDA.
+
+## 2. Divisão treino/teste
+
+```{r split}
+idx_treino <- createDataPartition(dados_modelo$log_price, p = 0.8, list = FALSE)
+treino <- dados_modelo[idx_treino, ]
+teste  <- dados_modelo[-idx_treino, ]
+
+nrow(treino); nrow(teste)
+```
+
+Usei `createDataPartition` (em vez de uma amostragem totalmente aleatória) para estratificar o split pelos quantis de `log_price` — assim treino e teste ficam com distribuições de preço comparáveis, o que reduz a chance de o teste calhar de concentrar só a faixa cara ou só a barata do mercado.
+
+Uma ressalva que já quero deixar registrada aqui: o ideal para um problema de preço de imóveis ao longo do tempo seria um split **temporal** (treinar com vendas mais antigas e testar nas mais recentes), porque é assim que o modelo vai ser usado na prática — prevendo o preço de vendas futuras. Optei pelo split aleatório estratificado por simplicidade e porque a janela de dados é curta (poucos meses), mas registro essa limitação explicitamente.
+
+```{r funcao-metricas}
+metricas <- function(real, previsto) {
+  tibble(
+    rmse = sqrt(mean((real - previsto)^2)),
+    mae  = mean(abs(real - previsto)),
+    r2   = cor(real, previsto)^2
+  )
+}
+```
+
+Trabalho as métricas na escala de `log_price` (para comparar os modelos de forma consistente) e depois converto o MAE de volta para dólares (`exp()`) para a leitura de negócio.
+
+## 3. Modelo baseline: Regressão Linear
+
+```{r lm}
+modelo_lm <- lm(log_price ~ ., data = treino)
+summary(modelo_lm)
+```
+
+```{r lm-metricas}
+pred_lm_treino <- predict(modelo_lm, treino)
+pred_lm_teste  <- predict(modelo_lm, teste)
+
+bind_rows(
+  metricas(treino$log_price, pred_lm_treino) |> mutate(base = "treino"),
+  metricas(teste$log_price, pred_lm_teste) |> mutate(base = "teste")
+)
+```
+
+Uso a regressão linear como baseline não porque eu espere que seja o melhor modelo, mas porque ela é totalmente interpretável: os coeficientes me dizem diretamente o efeito marginal de cada variável em `log_price` (aproximadamente, % de variação no preço por unidade da variável), o que é valioso tanto para validar se o modelo aprendeu relações que fazem sentido de domínio quanto para a comunicação com stakeholders na fase 5. `grade` e `sqft_living` aparecem com os coeficientes mais fortes e significativos, o que bate com a análise univariada da fase de EDA.
+
+### Regularização (Ridge)
+
+```{r ridge}
+x_treino <- model.matrix(log_price ~ ., treino)[, -1]
+y_treino <- treino$log_price
+x_teste  <- model.matrix(log_price ~ ., teste)[, -1]
+
+cv_ridge <- cv.glmnet(x_treino, y_treino, alpha = 0)
+pred_ridge_teste <- as.numeric(predict(cv_ridge, s = "lambda.min", newx = x_teste))
+
+metricas(teste$log_price, pred_ridge_teste)
+```
+
+Testei Ridge para ver se a regularização traria ganho, já que regressão linear sofre quando há colinearidade entre preditores. O resultado no teste fica praticamente igual ao da regressão linear sem regularização — o que é consistente com o que já vi na fase de EDA: depois de remover `sqft_above`/`sqft_basement`, os VIFs ficaram baixos (a colinearidade severa já tinha sido resolvida antes de chegar aqui). Por isso não vejo motivo para complicar o pipeline com Ridge; sigo com a regressão linear simples como baseline.
+
+## 4. Modelo principal: Random Forest
+
+```{r rf}
+ctrl <- trainControl(method = "cv", number = 5)
+grade_mtry <- expand.grid(mtry = c(3, 5, 7, 9))
+
+modelo_rf <- train(
+  log_price ~ ., data = treino,
+  method = "rf",
+  trControl = ctrl,
+  tuneGrid = grade_mtry,
+  ntree = 300,
+  importance = TRUE
+)
+
+modelo_rf
+```
+
+Escolhi Random Forest como candidato principal por três motivos que já vieram da própria EDA, não de preferência a priori por um modelo mais "sofisticado":
+
+1. **Localização é um driver forte e não-linear** (visto no mapa da fase de EDA) — uma árvore particiona `lat`/`long` em regiões, capturando esse padrão sem eu precisar desenhar manualmente interações ou splines como precisaria numa regressão linear.
+2. **`sqft_lot`/`sqft_lot15` têm cauda longa** e a Random Forest é naturalmente robusta a essa assimetria, sem exigir transformação adicional.
+3. Não preciso me preocupar tanto com a colinearidade residual entre `bathrooms`/`sqft_living` (vista no VIF da fase de EDA) — árvores lidam bem com preditores correlacionados, ao contrário da regressão linear.
+
+Usei validação cruzada de 5 folds só para escolher `mtry` (nº de variáveis sorteadas em cada divisão da árvore), não porque eu ache que é o hiperparâmetro mais crítico, mas porque é o principal parâmetro de uma Random Forest e um grid pequeno já é suficiente para não deixar essa escolha arbitrária.
+
+### Treino vs. teste — cuidado com uma pegadinha da Random Forest
+
+```{r rf-metricas}
+pred_rf_treino_ingenuo <- predict(modelo_rf, treino)
+pred_rf_treino_oob      <- modelo_rf$finalModel$predicted
+pred_rf_teste           <- predict(modelo_rf, teste)
+
+bind_rows(
+  metricas(treino$log_price, pred_rf_treino_ingenuo) |> mutate(base = "treino (ingênuo — enviesado)"),
+  metricas(treino$log_price, pred_rf_treino_oob)      |> mutate(base = "treino (out-of-bag — honesto)"),
+  metricas(teste$log_price, pred_rf_teste)            |> mutate(base = "teste")
+)
+```
+
+Isso merece explicação: se eu simplesmente chamar `predict()` da Random Forest sobre os próprios dados de treino, cada árvore reconhece as observações que ajudou a memorizar, e o erro sai artificialmente perto de zero — não é uma medida honesta de ajuste. Por isso comparo o teste com a predição **out-of-bag** (a predição de cada observação de treino usando só as árvores que *não* a usaram para crescer), que é a forma correta de estimar o erro "de treino" numa Random Forest. Com essa comparação honesta, o gap entre treino (OOB) e teste fica pequeno — sinal de que o modelo não está overfitando de forma preocupante.
+
+## 5. Comparação final e escolha do modelo
+
+```{r comparacao-final}
+comparacao <- tribble(
+  ~modelo, ~rmse, ~mae, ~r2,
+  "Regressão Linear", metricas(teste$log_price, pred_lm_teste)$rmse, metricas(teste$log_price, pred_lm_teste)$mae, metricas(teste$log_price, pred_lm_teste)$r2,
+  "Ridge",             metricas(teste$log_price, pred_ridge_teste)$rmse, metricas(teste$log_price, pred_ridge_teste)$mae, metricas(teste$log_price, pred_ridge_teste)$r2,
+  "Random Forest",     metricas(teste$log_price, pred_rf_teste)$rmse, metricas(teste$log_price, pred_rf_teste)$mae, metricas(teste$log_price, pred_rf_teste)$r2
+)
+comparacao
+
+mae_dolar_lm <- mean(abs(exp(teste$log_price) - exp(pred_lm_teste)))
+mae_dolar_rf <- mean(abs(exp(teste$log_price) - exp(pred_rf_teste)))
+mediana_preco_teste <- median(exp(teste$log_price))
+
+tibble(
+  modelo = c("Regressão Linear", "Random Forest"),
+  mae_dolares = c(mae_dolar_lm, mae_dolar_rf),
+  mae_percentual_da_mediana = c(mae_dolar_lm, mae_dolar_rf) / mediana_preco_teste
+)
+```
+
+A Random Forest supera a regressão linear em todas as métricas no conjunto de teste, com uma redução de erro que considero relevante em termos de negócio (não só estatisticamente melhor). **Modelo escolhido: Random Forest**, pelos motivos estruturais já explicados na seção 4 (localização não-linear, cauda longa em área de lote, robustez a colinearidade residual) e confirmados agora pelo ganho real de desempenho fora da amostra.
+
+## 6. Importância das variáveis
+
+```{r importancia}
+importancia <- randomForest::importance(modelo_rf$finalModel) |>
+  as.data.frame() |>
+  rownames_to_column("variavel") |>
+  arrange(desc(`%IncMSE`))
+
+importancia
+
+ggplot(importancia, aes(reorder(variavel, `%IncMSE`), `%IncMSE`)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = NULL, y = "% de aumento no erro (MSE) quando a variável é embaralhada")
+```
+
+Aqui teve uma surpresa que preciso registrar em vez de esconder: por `%IncMSE`, quem lidera o ranking não é `grade` nem `sqft_living` (que dominavam a correlação univariada na EDA), e sim `long`, `sqft_lot15`, `sqft_lot` e `lat` — localização e tamanho de lote. `sqft_living` aparece só em 5º e `grade` em 10º.
+
+Antes de aceitar isso como "localização importa mais do que o tamanho da casa", olhei a outra coluna da tabela, `IncNodePurity` (o quanto cada variável reduz a impureza dos nós ao longo de todas as árvores). Nessa métrica a ordem se inverte: `sqft_living` (903.6) e `grade` (880.5) voltam a liderar com folga, batendo com o que a EDA já indicava.
+
+Por que as duas medidas discordam tanto? `%IncMSE` mede o quanto o erro piora quando embaralho uma variável isoladamente. Quando duas variáveis carregam informação parecida — `sqft_living` e `sqft_living15`, ou `sqft_living` e `grade`, que têm correlação moderada entre si —, embaralhar uma delas prejudica menos o modelo, porque as árvores conseguem parcialmente "compensar" usando a variável correlacionada que ficou intacta. Isso deflaciona o `%IncMSE` de variáveis redundantes e infla o de variáveis mais "exclusivas", como `sqft_lot`, que não tem um substituto próximo entre os preditores. `IncNodePurity` não sofre esse efeito da mesma forma, mas tem seu próprio viés, favorecendo variáveis contínuas com muitos valores distintos frente a binárias como `waterfront`.
+
+Na prática, o que levo daqui: localização, tamanho da casa e padrão construtivo são todos preditores fortes — as duas métricas concordam nisso, só discordam em qual delas priorizar por causa de como cada uma lida com a colinearidade residual entre as variáveis. Não vou tratar nenhuma das duas como "a" resposta definitiva de importância sozinha, e é por isso que reporto as duas colunas lado a lado em vez de só uma.
+
+## 7. Diagnóstico dos resíduos (modelo final)
+
+```{r residuos}
+diagnostico <- tibble(
+  real     = exp(teste$log_price),
+  previsto = exp(pred_rf_teste)
+) |>
+  mutate(residuo = real - previsto)
+
+p1 <- ggplot(diagnostico, aes(previsto, real)) +
+  geom_point(alpha = 0.3) +
+  geom_abline(color = "firebrick") +
+  scale_x_continuous(labels = label_dollar()) +
+  scale_y_continuous(labels = label_dollar()) +
+  labs(title = "Previsto vs. real")
+
+p2 <- ggplot(diagnostico, aes(previsto, residuo)) +
+  geom_point(alpha = 0.3) +
+  geom_hline(yintercept = 0, color = "firebrick") +
+  scale_x_continuous(labels = label_dollar()) +
+  scale_y_continuous(labels = label_dollar()) +
+  labs(title = "Resíduos vs. previsto")
+
+p1 | p2
+```
+
+O gráfico de resíduos mostra um padrão que eu já esperava dado o que vi na EDA: para os imóveis mais caros (cauda direita da distribuição de `price`), o modelo tende a **subestimar** o preço — os pontos ficam sistematicamente abaixo da linha de 45°. Isso é uma limitação conhecida de Random Forest em regressão: como a previsão final é uma média das árvores, ela tem dificuldade em extrapolar para os valores extremos da cauda. Registro isso como limitação explícita do modelo, relevante para a fase de comunicação com stakeholders (o modelo é mais confiável para o mercado "típico" do que para mansões/imóveis de altíssimo padrão).
+
+## 8. Generalização — o que me dá confiança de que isso não é sorte de um único split
+
+```{r cv-estabilidade}
+modelo_rf$resample
+sd(modelo_rf$resample$RMSE)
+```
+
+Além da separação treino/teste, a busca de `mtry` já rodou em validação cruzada de 5 folds — o que me dá uma segunda evidência de generalização: o RMSE não varia muito entre os folds (desvio-padrão baixo em relação à média), ou seja, o desempenho do modelo não depende de um recorte específico dos dados. Resumindo a estratégia de generalização usada:
+
+- **Train/test split estratificado por preço** (80/20) para uma avaliação final fora da amostra.
+- **5-fold CV** na escolha de `mtry`, olhando não só a média mas a variabilidade do RMSE entre os folds.
+- **Comparação honesta treino (OOB) vs. teste**, evitando a armadilha de medir "erro de treino" com predições que a própria árvore memorizou.
+- **Ridge testado explicitamente** como forma de checar se regularização traria ganho adicional na regressão linear — não trouxe, o que reforça que a colinearidade residual já estava sob controle.
+- Registrei a limitação de não usar split temporal, que seria o cenário mais realista de uso em produção.
+
+## 9. Persistindo o modelo final
+
+```{r salvar-modelo}
+dir.create("../models", showWarnings = FALSE)
+saveRDS(modelo_rf, "../models/modelo_rf.rds")
+```
+
+Salvo o modelo treinado em disco para poder reutilizá-lo na etapa de previsão sobre `future_unseen_examples.csv` e na discussão de deploy, sem precisar retreinar tudo de novo.
