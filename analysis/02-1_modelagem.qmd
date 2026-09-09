@@ -28,7 +28,7 @@ theme_set(theme_minimal(base_size = 11))
 set.seed(42)
 ```
 
-Este notebook parte direto das conclusões da fase de EDA (`01_eda.qmd`): uso `log(price)` como alvo, removo o registro de 33 quartos (erro de digitação), substituo `sqft_above`/`sqft_basement` por uma flag `tem_porao` (por causa da colinearidade perfeita já identificada), e junto os dados demográficos por CEP.
+Este notebook (item 2.1) parte direto das conclusões do item 1 — EDA (`01_eda.qmd`): uso `log(price)` como alvo, removo o registro de 33 quartos (erro de digitação), substituo `sqft_above`/`sqft_basement` por uma flag `tem_porao` (por causa da colinearidade perfeita já identificada), e junto os dados demográficos por CEP.
 
 ## 1. Preparação do dataset de modelagem
 
@@ -109,7 +109,7 @@ bind_rows(
 )
 ```
 
-Uso a regressão linear como baseline não porque eu espere que seja o melhor modelo, mas porque ela é totalmente interpretável: os coeficientes me dizem diretamente o efeito marginal de cada variável em `log_price` (aproximadamente, % de variação no preço por unidade da variável), o que é valioso tanto para validar se o modelo aprendeu relações que fazem sentido de domínio quanto para a comunicação com stakeholders na fase 5. `grade` e `sqft_living` aparecem com os coeficientes mais fortes e significativos, o que bate com a análise univariada da fase de EDA.
+Uso a regressão linear como baseline não porque eu espere que seja o melhor modelo, mas porque ela é totalmente interpretável: os coeficientes me dizem diretamente o efeito marginal de cada variável em `log_price` (aproximadamente, % de variação no preço por unidade da variável), o que é valioso tanto para validar se o modelo aprendeu relações que fazem sentido de domínio quanto para a comunicação com stakeholders no item 5. `grade` e `sqft_living` aparecem com os coeficientes mais fortes e significativos, o que bate com a análise univariada da fase de EDA.
 
 ### Regularização (Ridge)
 

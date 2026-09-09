@@ -26,13 +26,13 @@ library(patchwork)
 theme_set(theme_minimal(base_size = 11))
 ```
 
-No notebook de modelagem (`02_modelagem.qmd`) já usei train/test split estratificado, 5-fold CV para escolher `mtry`, comparação honesta OOB vs. teste, e testei Ridge como forma de regularização. Isso cobre o básico do que o desafio pede em "generalização", mas quero ir além em três pontos que considero as perguntas mais importantes que ainda não respondi:
+No notebook de modelagem (item 2.1, `02-1_modelagem.qmd`) já usei train/test split estratificado, 5-fold CV para escolher `mtry`, comparação honesta OOB vs. teste, e testei Ridge como forma de regularização. Isso cobre o básico do que o desafio pede em "generalização", mas quero ir além em três pontos que considero as perguntas mais importantes que ainda não respondi:
 
 1. **O RMSE de 0,176 que reportei é um número exato ou tem incerteza?** Um único split treino/teste dá uma estimativa pontual, não me diz o quanto ela variaria se eu tivesse sorteado outro teste.
 2. **O split aleatório está sendo generoso demais?** Já registrei antes que o ideal seria um split temporal (treinar no passado, testar no futuro) — mas nunca testei isso de fato.
 3. **O modelo generaliza para um CEP que ele nunca viu?** Os dados demográficos são por zipcode; se aparecer um bairro novo no futuro, quero saber se o modelo ainda se sai bem.
 
-## 1. Reconstruindo o dataset (mesma preparação de `02_modelagem.qmd`)
+## 1. Reconstruindo o dataset (mesma preparação de `02-1_modelagem.qmd`)
 
 ```{r prep}
 casas_raw <- read_csv("../data/kc_house_data.csv", show_col_types = FALSE) |> clean_names()
