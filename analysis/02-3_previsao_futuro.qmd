@@ -1,0 +1,144 @@
+---
+title: "Previsão — future_unseen_examples.csv"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-summary: "mostrar código"
+    embed-resources: true
+    theme: flatly
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(tidyverse)
+library(janitor)
+library(scales)
+library(randomForest)
+library(caret)
+
+theme_set(theme_minimal(base_size = 11))
+```
+
+Aplico aqui o modelo final (Random Forest, salvo em `models/modelo_rf.rds`) sobre os 100 imóveis de `future_unseen_examples.csv`, que não têm `price` — o objetivo real de todo o desafio.
+
+## 1. Carregar modelo e dados novos
+
+```{r carregar}
+modelo_rf <- readRDS("../models/modelo_rf.rds")
+
+demograf <- read_csv("../data/zipcode_demographics.csv", show_col_types = FALSE) |>
+  clean_names() |>
+  mutate(zipcode = as.character(zipcode))
+
+futuro_raw <- read_csv("../data/future_unseen_examples.csv", show_col_types = FALSE) |>
+  clean_names() |>
+  mutate(zipcode = as.character(zipcode))
+
+dim(futuro_raw)
+```
+
+## 2. Aplicar o mesmo pipeline de feature engineering
+
+```{r feature-engineering}
+anos_venda_treino <- read_csv("../data/kc_house_data.csv", show_col_types = FALSE) |>
+  clean_names() |>
+  mutate(date = as.Date(date, format = "%Y%m%dT%H%M%S")) |>
+  pull(date) |>
+  year()
+
+ano_referencia <- max(anos_venda_treino)
+ano_referencia
+```
+
+`future_unseen_examples.csv` não tem coluna `date` — não sei em que ano cada imóvel seria vendido. Preciso de um ano de referência para calcular `idade_casa`, e a escolha não é neutra: se eu usasse o ano corrente (hoje), a idade de **todos** os imóveis subiria de forma uniforme e sairia da faixa em que o modelo foi treinado (o treino só viu vendas de `r min(anos_venda_treino)`–`r max(anos_venda_treino)`), arriscando extrapolação fora da região onde o modelo aprendeu. Por isso uso o ano de venda mais recente observado no treino (`r ano_referencia`) como referência — assumindo que estes imóveis são contemporâneos aos dados de treino, o que é consistente com o contexto do desafio (não há qualquer indicação de que sejam vendas futuras reais em outra época).
+
+```{r aplicar-fe}
+futuro <- futuro_raw |>
+  mutate(
+    tem_porao  = as.integer(sqft_basement > 0),
+    idade_casa = ano_referencia - yr_built,
+    reformado  = as.integer(yr_renovated > 0)
+  ) |>
+  left_join(demograf, by = "zipcode")
+
+vars_preditoras <- c(
+  "bedrooms", "bathrooms", "sqft_living", "sqft_lot", "floors",
+  "waterfront", "view", "condition", "grade", "tem_porao", "idade_casa", "reformado",
+  "lat", "long", "sqft_living15", "sqft_lot15",
+  "medn_hshld_incm_amt", "medn_incm_per_prsn_amt", "hous_val_amt",
+  "per_bchlr", "per_prfsnl"
+)
+
+futuro_modelo <- futuro |> select(all_of(vars_preditoras))
+```
+
+## 3. Checagem antes de prever: os dados novos parecem com o que o modelo já viu?
+
+```{r covariate-shift}
+casas_treino <- read_csv("../data/kc_house_data.csv", show_col_types = FALSE) |>
+  clean_names() |>
+  filter(bedrooms < 30)
+
+comparar_faixa <- function(nome) {
+  tibble(
+    variavel   = nome,
+    min_treino = min(casas_treino[[nome]]), max_treino = max(casas_treino[[nome]]),
+    min_futuro = min(futuro[[nome]]),       max_futuro = max(futuro[[nome]])
+  )
+}
+
+map_dfr(c("bedrooms", "bathrooms", "sqft_living", "sqft_lot", "grade", "idade_casa"), comparar_faixa)
+```
+
+Já tinha checado isso na fase de EDA para as variáveis físicas brutas; refaço aqui incluindo `idade_casa` especificamente, porque é uma variável derivada que dependeu da minha escolha de `ano_referencia` acima — quero confirmar que essa decisão não empurrou nenhum imóvel para fora da faixa que o modelo aprendeu.
+
+## 4. Gerar as previsões
+
+```{r prever}
+pred_log_price <- predict(modelo_rf, futuro_modelo)
+
+resultado <- futuro_raw |>
+  mutate(preco_previsto = exp(pred_log_price)) |>
+  relocate(preco_previsto)
+
+resultado |> select(preco_previsto, bedrooms, bathrooms, sqft_living, grade, zipcode) |> head(10)
+```
+
+## 5. As previsões fazem sentido?
+
+```{r sanity-check}
+resumo_previsto <- resultado |>
+  summarise(
+    media = mean(preco_previsto), mediana = median(preco_previsto),
+    minimo = min(preco_previsto), maximo = max(preco_previsto)
+  )
+resumo_previsto
+
+resumo_treino <- casas_treino |>
+  summarise(
+    media = mean(price), mediana = median(price),
+    minimo = min(price), maximo = max(price)
+  )
+resumo_treino
+
+ggplot() +
+  geom_density(data = casas_treino, aes(price, color = "treino (real)")) +
+  geom_density(data = resultado, aes(preco_previsto, color = "future_unseen (previsto)")) +
+  scale_x_continuous(labels = label_dollar(scale = 1e-3, suffix = "k"), limits = c(0, 2e6)) +
+  labs(x = "preço", y = "densidade", color = NULL)
+```
+
+A distribuição das previsões para `future_unseen_examples.csv` fica dentro da faixa de preços observada no treino, com média e mediana em ordem de grandeza compatível — não vejo nenhum sinal de previsão absurda (preço negativo, ou uma casa de 2 quartos prevista a \$5 milhões, por exemplo), o que seria a bandeira vermelha mais óbvia de algo errado no pipeline de feature engineering.
+
+## 6. Salvando o resultado final
+
+```{r salvar}
+dir.create("../output", showWarnings = FALSE)
+write_csv(resultado, "../output/previsoes_future_unseen.csv")
+```
+
+Salvo o arquivo com todas as colunas originais de `future_unseen_examples.csv` mais a coluna `preco_previsto`, em `output/previsoes_future_unseen.csv` — o entregável concreto desta etapa.
