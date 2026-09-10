@@ -22,6 +22,7 @@ library(scales)
 library(randomForest)
 library(caret)
 library(glmnet)
+library(xgboost)
 library(patchwork)
 
 theme_set(theme_minimal(base_size = 11))
@@ -126,6 +127,24 @@ metricas(teste$log_price, pred_ridge_teste)
 
 Testei Ridge para ver se a regularização traria ganho, já que regressão linear sofre quando há colinearidade entre preditores. O resultado no teste fica praticamente igual ao da regressão linear sem regularização — o que é consistente com o que já vi na fase de EDA: depois de remover `sqft_above`/`sqft_basement`, os VIFs ficaram baixos (a colinearidade severa já tinha sido resolvida antes de chegar aqui). Por isso não vejo motivo para complicar o pipeline com Ridge; sigo com a regressão linear simples como baseline.
 
+### Regularização (Lasso)
+
+Ridge encolhe todos os coeficientes, mas nenhum vira exatamente zero. Lasso (penalidade L1 em vez de L2) pode zerar coeficientes por completo — então, além de testar se ajuda a métrica, uso o Lasso também como uma checagem informal de seleção de variáveis: quais features ele decide que são dispensáveis?
+
+```{r lasso}
+cv_lasso <- cv.glmnet(x_treino, y_treino, alpha = 1)
+pred_lasso_teste <- as.numeric(predict(cv_lasso, s = "lambda.min", newx = x_teste))
+
+coef_lasso <- coef(cv_lasso, s = "lambda.min")
+n_zerados <- sum(coef_lasso == 0)
+
+metricas(teste$log_price, pred_lasso_teste)
+tibble(variavel = rownames(coef_lasso), coeficiente = as.numeric(coef_lasso)) |>
+  filter(coeficiente == 0)
+```
+
+Assim como o Ridge, o Lasso não melhora a métrica em relação à regressão linear simples — mesma conclusão de antes, a colinearidade grave já estava resolvida. E ele zerou `r n_zerados` coeficiente(s), o que reforça (mas não substitui) a própria análise de multicolinearidade da EDA: não é um sinal de que sobra muita variável redundante no conjunto que ficou.
+
 ## 4. Modelo principal: Random Forest
 
 ```{r rf}
@@ -168,31 +187,110 @@ bind_rows(
 
 Isso merece explicação: se eu simplesmente chamar `predict()` da Random Forest sobre os próprios dados de treino, cada árvore reconhece as observações que ajudou a memorizar, e o erro sai artificialmente perto de zero — não é uma medida honesta de ajuste. Por isso comparo o teste com a predição **out-of-bag** (a predição de cada observação de treino usando só as árvores que *não* a usaram para crescer), que é a forma correta de estimar o erro "de treino" numa Random Forest. Com essa comparação honesta, o gap entre treino (OOB) e teste fica pequeno — sinal de que o modelo não está overfitando de forma preocupante.
 
-## 5. Comparação final e escolha do modelo
+## 5. Outros modelos testados: Gradient Boosting e KNN
+
+Depois da Random Forest, testei mais dois modelos de naturezas bem diferentes entre si — um para ver se um *ensemble* mais sofisticado bate a Random Forest, outro para ter um contraponto totalmente não-paramétrico.
+
+### Gradient Boosting (XGBoost)
+
+O README já cita XGBoost como exemplo de modelo a considerar. Diferente da Random Forest (que treina árvores independentes e tira a média — *bagging*), o *boosting* treina árvores em sequência, cada uma corrigindo o erro residual da anterior.
+
+Não uso `caret::train(method = "xgbTree")` aqui: a versão do pacote `xgboost` instalada (3.x) reescreveu a API em R e quebrou compatibilidade com o *wrapper* do `caret` (erro interno de `ALTLIST`/`XGBAltrepPointerClass` — bug de integração entre os dois pacotes, não do meu código). Uso a função `xgboost()` diretamente, com uma validação cruzada de 5 folds escrita à mão pra escolher `max_depth` — mesmo princípio de grid pequeno das outras seções, só sem depender do `caret` pra orquestrar.
+
+```{r xgb}
+x_treino_xgb <- model.matrix(log_price ~ ., treino)[, -1]
+y_treino_xgb <- treino$log_price
+x_teste_xgb  <- model.matrix(log_price ~ ., teste)[, -1]
+
+grade_xgb <- tibble(max_depth = c(3, 6))
+
+avaliar_max_depth <- function(profundidade) {
+  set.seed(42)
+  folds <- createFolds(y_treino_xgb, k = 5)
+  rmses <- map_dbl(folds, function(idx_val) {
+    modelo <- xgboost(
+      x = x_treino_xgb[-idx_val, ], y = y_treino_xgb[-idx_val],
+      max_depth = profundidade, learning_rate = 0.1, nrounds = 300,
+      objective = "reg:squarederror", nthreads = 1, verbosity = 0
+    )
+    pred <- predict(modelo, x_treino_xgb[idx_val, ])
+    sqrt(mean((y_treino_xgb[idx_val] - pred)^2))
+  })
+  mean(rmses)
+}
+
+resultados_xgb <- grade_xgb |> mutate(rmse_cv = map_dbl(max_depth, avaliar_max_depth))
+resultados_xgb
+
+melhor_depth <- resultados_xgb |> slice_min(rmse_cv, n = 1) |> pull(max_depth)
+
+modelo_xgb <- xgboost(
+  x = x_treino_xgb, y = y_treino_xgb,
+  max_depth = melhor_depth, learning_rate = 0.1, nrounds = 300,
+  objective = "reg:squarederror", nthreads = 1, verbosity = 0
+)
+
+melhor_depth
+pred_xgb_teste <- predict(modelo_xgb, x_teste_xgb)
+metricas(teste$log_price, pred_xgb_teste)
+```
+
+### K-Nearest Neighbors (KNN)
+
+KNN prevê o preço de um imóvel pela média dos `k` imóveis mais parecidos no conjunto de treino — na prática, é a versão algorítmica de como um corretor de imóveis raciocina informalmente ("essa casa é parecida com essas três que venderam recentemente"). Uma diferença importante em relação a todos os modelos anteriores: KNN mede distância entre os pontos, então **precisa das variáveis na mesma escala** — sem isso, `sqft_lot` (na casa dos milhares) dominaria completamente a distância sobre `grade` (1 a 13). Uso `preProcess = c("center", "scale")` para normalizar antes de calcular qualquer distância; nenhum dos modelos anteriores precisou disso.
+
+```{r knn}
+grade_knn <- expand.grid(k = c(5, 10, 15, 25))
+
+modelo_knn <- train(
+  log_price ~ ., data = treino,
+  method = "knn",
+  trControl = ctrl,
+  tuneGrid = grade_knn,
+  preProcess = c("center", "scale")
+)
+
+modelo_knn$bestTune
+pred_knn_teste <- predict(modelo_knn, teste)
+metricas(teste$log_price, pred_knn_teste)
+```
+
+## 6. Comparação final e escolha do modelo
 
 ```{r comparacao-final}
 comparacao <- tribble(
   ~modelo, ~rmse, ~mae, ~r2,
   "Regressão Linear", metricas(teste$log_price, pred_lm_teste)$rmse, metricas(teste$log_price, pred_lm_teste)$mae, metricas(teste$log_price, pred_lm_teste)$r2,
   "Ridge",             metricas(teste$log_price, pred_ridge_teste)$rmse, metricas(teste$log_price, pred_ridge_teste)$mae, metricas(teste$log_price, pred_ridge_teste)$r2,
-  "Random Forest",     metricas(teste$log_price, pred_rf_teste)$rmse, metricas(teste$log_price, pred_rf_teste)$mae, metricas(teste$log_price, pred_rf_teste)$r2
-)
+  "Lasso",             metricas(teste$log_price, pred_lasso_teste)$rmse, metricas(teste$log_price, pred_lasso_teste)$mae, metricas(teste$log_price, pred_lasso_teste)$r2,
+  "Random Forest",     metricas(teste$log_price, pred_rf_teste)$rmse, metricas(teste$log_price, pred_rf_teste)$mae, metricas(teste$log_price, pred_rf_teste)$r2,
+  "XGBoost",           metricas(teste$log_price, pred_xgb_teste)$rmse, metricas(teste$log_price, pred_xgb_teste)$mae, metricas(teste$log_price, pred_xgb_teste)$r2,
+  "KNN",               metricas(teste$log_price, pred_knn_teste)$rmse, metricas(teste$log_price, pred_knn_teste)$mae, metricas(teste$log_price, pred_knn_teste)$r2
+) |> arrange(rmse)
 comparacao
 
-mae_dolar_lm <- mean(abs(exp(teste$log_price) - exp(pred_lm_teste)))
-mae_dolar_rf <- mean(abs(exp(teste$log_price) - exp(pred_rf_teste)))
+mae_dolar_lm  <- mean(abs(exp(teste$log_price) - exp(pred_lm_teste)))
+mae_dolar_rf  <- mean(abs(exp(teste$log_price) - exp(pred_rf_teste)))
+mae_dolar_xgb <- mean(abs(exp(teste$log_price) - exp(pred_xgb_teste)))
+mae_dolar_knn <- mean(abs(exp(teste$log_price) - exp(pred_knn_teste)))
 mediana_preco_teste <- median(exp(teste$log_price))
 
 tibble(
-  modelo = c("Regressão Linear", "Random Forest"),
-  mae_dolares = c(mae_dolar_lm, mae_dolar_rf),
-  mae_percentual_da_mediana = c(mae_dolar_lm, mae_dolar_rf) / mediana_preco_teste
+  modelo = c("Regressão Linear", "Random Forest", "XGBoost", "KNN"),
+  mae_dolares = c(mae_dolar_lm, mae_dolar_rf, mae_dolar_xgb, mae_dolar_knn),
+  mae_percentual_da_mediana = c(mae_dolar_lm, mae_dolar_rf, mae_dolar_xgb, mae_dolar_knn) / mediana_preco_teste
 )
 ```
 
-A Random Forest supera a regressão linear em todas as métricas no conjunto de teste, com uma redução de erro que considero relevante em termos de negócio (não só estatisticamente melhor). **Modelo escolhido: Random Forest**, pelos motivos estruturais já explicados na seção 4 (localização não-linear, cauda longa em área de lote, robustez a colinearidade residual) e confirmados agora pelo ganho real de desempenho fora da amostra.
+Seis modelos testados, do mais simples ao mais flexível. `r comparacao$modelo[1]` venceu por RMSE no teste — mesmo padrão que encontrei na versão Python.
 
-## 6. Importância das variáveis
+**Nesta implementação (R), continuo com Random Forest** para o restante do notebook (itens 2.2 e 2.3 desta versão): os motivos estruturais da seção 4 (localização não-linear, robustez a colinearidade residual) continuam valendo, e a diferença de desempenho entre os dois é pequena perto da diferença de ambos para a regressão linear. Random Forest fica documentada aqui como o modelo mais forte entre os que testei e descartei nesta versão, não como algo ruim.
+
+**Para o projeto como um todo**, no entanto, testei a mesma vantagem do XGBoost sob a validação mais rigorosa que tenho (CV agrupada por CEP, item 2.2) na implementação Python — e ela sobreviveu, com o XGBoost inclusive generalizando proporcionalmente *melhor* que a Random Forest em bairros nunca vistos. Por isso adotei **XGBoost, na implementação Python (`python/02-1_modelagem.ipynb`), como modelo de referência do projeto** — é a partir dali que os itens 2.2, 2.3, a estratégia de deploy e a comunicação com stakeholders seguem. Esta versão R permanece completa e válida como implementação alternativa.
+
+KNN, como esperado de um modelo puramente baseado em distância sem noção de árvore/interação, fica atrás dos modelos que capturam nao-linearidade de forma mais estruturada — mas não fica ridiculamente pior, o que sugere que a normalização das variáveis e a boa cobertura de vizinhos por bairro (o `k` escolhido) já carregam boa parte do sinal geográfico sozinhas.
+
+## 7. Importância das variáveis
 
 ```{r importancia}
 importancia <- randomForest::importance(modelo_rf$finalModel) |>
@@ -216,7 +314,7 @@ Por que as duas medidas discordam tanto? `%IncMSE` mede o quanto o erro piora qu
 
 Na prática, o que levo daqui: localização, tamanho da casa e padrão construtivo são todos preditores fortes — as duas métricas concordam nisso, só discordam em qual delas priorizar por causa de como cada uma lida com a colinearidade residual entre as variáveis. Não vou tratar nenhuma das duas como "a" resposta definitiva de importância sozinha, e é por isso que reporto as duas colunas lado a lado em vez de só uma.
 
-## 7. Diagnóstico dos resíduos (modelo final)
+## 8. Diagnóstico dos resíduos (modelo final)
 
 ```{r residuos}
 diagnostico <- tibble(
@@ -244,7 +342,7 @@ p1 | p2
 
 O gráfico de resíduos mostra um padrão que eu já esperava dado o que vi na EDA: para os imóveis mais caros (cauda direita da distribuição de `price`), o modelo tende a **subestimar** o preço — os pontos ficam sistematicamente abaixo da linha de 45°. Isso é uma limitação conhecida de Random Forest em regressão: como a previsão final é uma média das árvores, ela tem dificuldade em extrapolar para os valores extremos da cauda. Registro isso como limitação explícita do modelo, relevante para a fase de comunicação com stakeholders (o modelo é mais confiável para o mercado "típico" do que para mansões/imóveis de altíssimo padrão).
 
-## 8. Generalização — o que me dá confiança de que isso não é sorte de um único split
+## 9. Generalização — o que me dá confiança de que isso não é sorte de um único split
 
 ```{r cv-estabilidade}
 modelo_rf$resample
@@ -259,7 +357,7 @@ Além da separação treino/teste, a busca de `mtry` já rodou em validação cr
 - **Ridge testado explicitamente** como forma de checar se regularização traria ganho adicional na regressão linear — não trouxe, o que reforça que a colinearidade residual já estava sob controle.
 - Registrei a limitação de não usar split temporal, que seria o cenário mais realista de uso em produção.
 
-## 9. Persistindo o modelo final
+## 10. Persistindo o modelo final
 
 ```{r salvar-modelo}
 dir.create("../models", showWarnings = FALSE)

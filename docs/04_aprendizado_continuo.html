@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aprendizado Contínuo — Ciclo de Reentreino</title>
+<style>
+:root{
+  --paper:#eef1f4; --card:#f8f9fb; --card-2:#e9edf1;
+  --ink:#10161d; --ink-2:#414c58; --muted:#717e8a;
+  --rule:#d7dee4; --grid:#e4e9ed;
+  --accent:#1f6fd4; --ok:#0f8a6a; --alert:#c8352b;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua","Hoefler Text",Georgia,serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono",Consolas,"DejaVu Sans Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#0b1116; --card:#141b21; --card-2:#1b232a;
+    --ink:#e9eef2; --ink-2:#a7b3bc; --muted:#7c8891;
+    --rule:#252f37; --grid:#1d262d;
+    --accent:#4d90ee; --ok:#19a684; --alert:#e2564a;
+  }
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);line-height:1.6;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1100px;margin:0 auto;padding:0 clamp(1rem,4vw,3rem) 6rem;}
+header{padding:4rem 0 2rem;border-bottom:1px solid var(--rule);}
+.eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 .8rem;}
+h1{font-size:clamp(1.8rem,1.2rem+2.4vw,2.7rem);line-height:1.08;margin:0 0 .8rem;font-weight:600;letter-spacing:-.02em;}
+.dek{font-size:1.08rem;color:var(--ink-2);max-width:52rem;margin:0;}
+.diagram-card{margin:2.4rem 0;background:var(--card);border:1px solid var(--rule);border-radius:4px;padding:1.4rem;}
+.diagram-card svg{display:block;width:100%;height:auto;}
+.diagram-cap{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:1rem;line-height:1.7;}
+h2{font-size:1.3rem;font-weight:600;margin:2.6rem 0 .3rem;letter-spacing:-.01em;}
+.layer{margin:1.6rem 0;padding-left:1.1rem;border-left:2px solid var(--rule);}
+.layer .n{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:.3rem;}
+.layer h3{margin:0 0 .5rem;font-size:1.05rem;font-weight:600;}
+.layer p{margin:0;color:var(--ink-2);font-size:.98rem;max-width:44rem;}
+.layer p + p{margin-top:.7rem;}
+.layer ol{margin:.4rem 0 0;padding-left:1.2rem;color:var(--ink-2);font-size:.98rem;max-width:44rem;}
+.layer li + li{margin-top:.35rem;}
+.layer code{font-family:var(--mono);font-size:.88em;background:var(--card-2);border:1px solid var(--rule);border-radius:3px;padding:.05em .3em;color:var(--accent);}
+table.spec{border-collapse:collapse;margin:.8rem 0 0;font-size:.92rem;max-width:44rem;}
+table.spec th,table.spec td{border:1px solid var(--rule);padding:.4rem .7rem;text-align:left;}
+table.spec th{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--card-2);}
+table.spec td{color:var(--ink-2);}
+.callout{border-left:2px solid var(--alert);padding:.1rem 0 .1rem 1rem;color:var(--ink-2);font-size:.94em;margin:1rem 0 0;max-width:44rem;}
+.callout .lbl{font-family:var(--mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--alert);display:block;margin-bottom:.2rem;}
+.callout.muted{border-left-color:var(--muted);}
+.callout.muted .lbl{color:var(--muted);}
+footer{margin-top:3.5rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-family:var(--mono);font-size:.7rem;color:var(--muted);}
+footer a{color:var(--accent);}
+.ax{font-family:var(--mono);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Item 4 · Aprendizado Contínuo</p>
+    <h1>Como o modelo continuaria aprendendo com dados novos</h1>
+    <p class="dek">Apoiado diretamente no que encontrei no item 2.2 (generalização, modelo de referência XGBoost) — não numa receita genérica de MLOps. Três gatilhos de reentreino, uma avaliação <em>champion/challenger</em> nas mesmas três validações que já usei, e rollback imediato caso o desafiante não vença.</p>
+  </header>
+
+  <div class="diagram-card">
+    <svg viewBox="0 0 980 620" role="img" aria-label="Diagrama do ciclo de reentreino: três gatilhos (periódico, CEP novo, degradação observada) disparam o treino de um modelo challenger; o challenger é validado contra as mesmas três estratégias do item 2.2; se não piorar em nenhuma delas, é versionado no Model Registry e vira o novo champion, fechando o ciclo; se piorar em qualquer uma, é descartado e o champion atual continua em produção até o próximo gatilho.">
+
+      <defs>
+        <marker id="arrow4" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto">
+          <polygon points="0,0 9,4.5 0,9" fill="currentColor"/>
+        </marker>
+        <marker id="arrowOk4" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto">
+          <polygon points="0,0 9,4.5 0,9" fill="var(--ok)"/>
+        </marker>
+        <marker id="arrowAlert4" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto">
+          <polygon points="0,0 9,4.5 0,9" fill="var(--alert)"/>
+        </marker>
+      </defs>
+
+      <g font-family="var(--mono)" font-size="12" fill="var(--ink)">
+
+        <!-- gatilhos -->
+        <rect x="30" y="16" width="270" height="60" rx="3" fill="none" stroke="var(--muted)"/>
+        <text x="165" y="40" text-anchor="middle" font-weight="600">1 · Periódico</text>
+        <text x="165" y="58" text-anchor="middle" font-size="10" fill="var(--muted)">linha de base, mensal</text>
+
+        <rect x="355" y="16" width="270" height="60" rx="3" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+        <text x="490" y="40" text-anchor="middle" font-weight="700" fill="var(--accent)">2 · CEP novo</text>
+        <text x="490" y="58" text-anchor="middle" font-size="10" fill="var(--ink-2)">gatilho mais sensível — RMSE +20,5%</text>
+
+        <rect x="680" y="16" width="270" height="60" rx="3" fill="none" stroke="var(--muted)"/>
+        <text x="815" y="40" text-anchor="middle" font-weight="600">3 · Degradação observada</text>
+        <text x="815" y="58" text-anchor="middle" font-size="10" fill="var(--muted)">erro real fora do IC do bootstrap</text>
+
+        <!-- convergencia para "treinar challenger" -->
+        <path d="M 165 76 C 165 110, 400 118, 470 130" fill="none" stroke="var(--ink-2)"/>
+        <path d="M 490 76 L 490 130" stroke="var(--ink-2)" marker-end="url(#arrow4)"/>
+        <path d="M 815 76 C 815 110, 580 118, 510 130" fill="none" stroke="var(--ink-2)" marker-end="url(#arrow4)"/>
+
+        <rect x="350" y="132" width="280" height="56" rx="3" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+        <text x="490" y="156" text-anchor="middle" font-weight="700" fill="var(--accent)">Treinar challenger</text>
+        <text x="490" y="173" text-anchor="middle" font-size="10" fill="var(--ink-2)">mesmo pipeline de features + busca de max_depth</text>
+
+        <line x1="490" y1="188" x2="490" y2="224" stroke="var(--ink-2)" marker-end="url(#arrow4)"/>
+
+        <rect x="300" y="226" width="380" height="66" rx="3" fill="none" stroke="var(--muted)"/>
+        <text x="490" y="248" text-anchor="middle" font-weight="600">Validar contra as 3 estratégias do item 2.2</text>
+        <text x="490" y="265" text-anchor="middle" font-size="10" fill="var(--muted)">split aleatório · split temporal · CV agrupada por CEP</text>
+        <text x="490" y="280" text-anchor="middle" font-size="10" fill="var(--muted)">(a mesma bateria que definiu o XGBoost como referência)</text>
+
+        <line x1="490" y1="292" x2="490" y2="326" stroke="var(--ink-2)" marker-end="url(#arrow4)"/>
+
+        <polygon points="490,328 600,378 490,428 380,378" fill="none" stroke="var(--ink-2)" stroke-width="1.6"/>
+        <text x="490" y="373" text-anchor="middle" font-size="11">não piorou em</text>
+        <text x="490" y="388" text-anchor="middle" font-size="11">nenhuma das 3?</text>
+
+        <!-- caminho sim -->
+        <line x1="490" y1="428" x2="490" y2="464" stroke="var(--ok)" marker-end="url(#arrowOk4)"/>
+        <text x="505" y="450" font-size="10.5" fill="var(--ok)">sim</text>
+
+        <rect x="335" y="466" width="310" height="60" rx="3" fill="none" stroke="var(--ok)" stroke-width="1.6"/>
+        <text x="490" y="490" text-anchor="middle" font-weight="700" fill="var(--ok)">Versiona no Model Registry</text>
+        <text x="490" y="507" text-anchor="middle" font-size="10" fill="var(--ink-2)">troca o alias de produção — challenger vira champion</text>
+
+        <line x1="490" y1="526" x2="490" y2="556" stroke="var(--ok)" marker-end="url(#arrowOk4)"/>
+        <rect x="345" y="558" width="290" height="46" rx="3" fill="none" stroke="var(--muted)" stroke-dasharray="2 3"/>
+        <text x="490" y="586" text-anchor="middle" font-size="10.5" fill="var(--muted)">Model Registry servido em produção (item 3)</text>
+
+        <!-- caminho nao -->
+        <path d="M 600 378 C 760 378, 850 420, 850 466" fill="none" stroke="var(--alert)" marker-end="url(#arrowAlert4)"/>
+        <text x="720" y="368" font-size="10.5" fill="var(--alert)">não, em pelo menos uma</text>
+
+        <rect x="705" y="468" width="240" height="60" rx="3" fill="none" stroke="var(--alert)" stroke-width="1.6"/>
+        <text x="825" y="492" text-anchor="middle" font-weight="700" fill="var(--alert)">Descarta challenger</text>
+        <text x="825" y="509" text-anchor="middle" font-size="10" fill="var(--ink-2)">champion atual continua em produção</text>
+
+        <path d="M 825 468 C 825 380, 815 76, 815 76" fill="none" stroke="var(--alert)" stroke-dasharray="3 4" marker-end="url(#arrowAlert4)"/>
+        <text x="855" y="230" font-size="10" fill="var(--alert)" transform="rotate(90 855 230)">aguarda o próximo gatilho</text>
+
+      </g>
+    </svg>
+    <p class="diagram-cap">Três gatilhos independentes disparam o treino de um <em>challenger</em>; ele só substitui o <em>champion</em> em produção se não piorar em nenhuma das três validações do item 2.2 — evitando o cenário de melhorar a média geral às custas do ponto fraco já conhecido (CEPs novos).</p>
+  </div>
+
+  <h2>Os três gatilhos, e por que nenhum é só um calendário</h2>
+
+  <div class="layer">
+    <span class="n">1 · Periódico (linha de base)</span>
+    <h3>O gatilho de manutenção, não o mais importante</h3>
+    <p>Mensal é razoável: venda de imóvel não é um evento de alta frequência, e treinar toda semana só adicionaria ruído operacional sem dado novo suficiente para justificar.</p>
+  </div>
+
+  <div class="layer">
+    <span class="n">2 · Por zipcode novo</span>
+    <h3>O gatilho que eu considero mais importante</h3>
+    <p>No item 2.2, descobri que o modelo generaliza <strong>pior para um CEP nunca visto</strong> (RMSE +20,5%) do que para uma janela de tempo futura (RMSE +13,0%) — o maior risco de generalização não é o modelo "envelhecer", é aparecer um bairro fora do que ele já viu (um novo empreendimento, uma área que começou a vender casas).</p>
+    <p>Por isso, o gatilho mais sensível que eu proporia não é baseado em tempo: é monitorar a % de previsões vindas de CEPs ausentes do conjunto de treino (a mesma flag da estratégia de deploy) e disparar um reentreino assim que esse volume passar de um limiar — sem esperar o ciclo mensal.</p>
+  </div>
+
+  <div class="layer">
+    <span class="n">3 · Por degradação observada</span>
+    <h3>Quando o erro real foge do que eu esperava</h3>
+    <p>Quando o preço real de venda for confirmado (com o atraso natural do mercado), comparo o erro real contra o intervalo de confiança que já calculei via bootstrap (RMSE de teste, IC 95% [0,156; 0,168] em escala log). Se o erro real ficar consistentemente <strong>fora</strong> desse intervalo por um período, é sinal de que a relação entre as features e o preço mudou — gatilho de reentreino antecipado, independente do calendário.</p>
+  </div>
+
+  <h2>Champion / challenger: como decido se o modelo novo entra</h2>
+
+  <div class="layer">
+    <span class="n">4 · Avaliação antes da troca</span>
+    <h3>Uma média de erro única esconde fraqueza específica</h3>
+    <p>Por isso, antes de qualquer <code>challenger</code> substituir o <code>champion</code> em produção, ele passa pelas mesmas três validações já usadas para escolher o modelo de referência:</p>
+    <table class="spec">
+      <tr><th>Validação</th><th>O que testa</th></tr>
+      <tr><td>Split aleatório estratificado</td><td>Desempenho geral, comparável ao histórico</td></tr>
+      <tr><td>Split temporal</td><td>Desempenho ao prever "o futuro" a partir do passado</td></tr>
+      <tr><td>CV agrupada por CEP</td><td>Desempenho em bairros fora do treino</td></tr>
+    </table>
+    <p>O <code>challenger</code> só substitui o <code>champion</code> se <strong>não piorar em nenhuma das três</strong> (dentro da margem do intervalo de confiança, não exigindo melhora estatisticamente perfeita em todas).</p>
+  </div>
+
+  <div class="layer">
+    <span class="n">5 · Na prática</span>
+    <h3>O passo a passo do reentreino</h3>
+    <ol>
+      <li>Puxar as vendas confirmadas desde o último treino, e a versão mais recente de <code>zipcode_demographics</code> (dado que muda pouco, mas vale checar).</li>
+      <li>Rodar o mesmo pipeline de feature engineering encapsulado (a mesma lógica descrita na estratégia de deploy, para não haver divergência entre o que treina e o que serve).</li>
+      <li>Re-treinar com a mesma busca de <code>max_depth</code> por 5-fold CV usada no item 2.1.</li>
+      <li>Avaliar como <code>challenger</code> contra as três validações da tabela acima.</li>
+      <li>Se aprovado, versionar no Model Registry e trocar o alias de produção (rollback imediato disponível, como descrito na estratégia de deploy).</li>
+    </ol>
+  </div>
+
+  <p class="callout muted"><span class="lbl">Decisão em aberto</span>Não decidi ainda se o treino deveria usar <strong>todo o histórico acumulado</strong> ou uma <strong>janela deslizante</strong> (ex.: últimos 3–5 anos). Mercado imobiliário muda (inflação, tendência de preços por região), então dado muito antigo pode ter relação diferente entre features e preço da que existe hoje — mas também não tenho, neste momento, evidência própria de que isso é um problema real neste dataset (só um ano de dados de treino, 2014–2015). Registro como algo a revisitar quando houver histórico multi-ano suficiente para testar as duas abordagens uma contra a outra.</p>
+
+  <p class="callout"><span class="lbl">Sobre a versão R</span>A mesma estratégia se aplica à implementação alternativa em R (Random Forest) — trocando a busca de <code>max_depth</code> por <code>mtry</code>/<code>nodesize</code> e os números de generalização pelos que aparecem em <code>analysis/02-2_generalizacao.qmd</code> (RMSE +16% em CEP novo, +7% em split temporal). A arquitetura do ciclo (gatilhos, champion/challenger, rollback) não muda com o modelo ou a linguagem.</p>
+
+  <footer>
+    Aprendizado Contínuo · King County House Prices · <a href="https://github.com/dmourasi/king-county-house-prices">repositório no GitHub</a>
+  </footer>
+</div>
+</body>
+</html>

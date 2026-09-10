@@ -1,5 +1,27 @@
 # Desafio de Data Science — Previsão de Preços de Casas
 
+## Minha solução
+
+> **Comece por aqui:** [`resolução.md`](resolução.md) — guia do pipeline completo, com diagrama, mapa de pastas e link direto para cada entregável.
+
+Resumo rápido de onde encontrar cada item pedido abaixo:
+
+| Item | Onde está |
+|---|---|
+| 1 · Análise dos dados | [`analysis/01_eda.qmd`](analysis/01_eda.qmd) (R) · [`python/01_eda.ipynb`](python/01_eda.ipynb) |
+| 2 · Modelo, variáveis, generalização | [`python/02-1_modelagem.ipynb`](python/02-1_modelagem.ipynb) · [`python/02-2_generalizacao.ipynb`](python/02-2_generalizacao.ipynb) |
+| 3 · Estratégia de deploy | [`docs/03_estrategia_deploy.html`](docs/03_estrategia_deploy.html) |
+| 4 · Aprendizado contínuo | [`docs/04_aprendizado_continuo.html`](docs/04_aprendizado_continuo.html) |
+| 5 · Comunicação com stakeholders | [`docs/05_comunicacao_stakeholders.html`](docs/05_comunicacao_stakeholders.html) |
+
+Duas implementações completas ficam no repositório: **Python** (XGBoost, referência) e **R** (Random Forest, alternativa) — ver [`resolução.md`](resolução.md) para o porquê da escolha e como reproduzir qualquer uma das duas do zero.
+
+*Nota: o GitHub exibe os `.html` acima como código-fonte, não renderizados — para ver as páginas formatadas, baixe o arquivo e abra localmente no navegador, ou peça para eu ativar o GitHub Pages neste repositório.*
+
+O enunciado original do desafio, como recebido, segue abaixo sem alterações.
+
+---
+
 ## Contexto
 Os dados disponibilizados correspondem a propriedades residenciais **anonimizadas** da região de **Seattle (EUA)**.  
 O objetivo é **prever o preço das casas** a partir de suas características físicas e informações demográficas associadas ao CEP (zipcode).

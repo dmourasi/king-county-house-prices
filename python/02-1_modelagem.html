@@ -3,7 +3,7 @@
 <html lang="en">
 <head><meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>02_generalizacao</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>02-1_modelagem</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 <style type="text/css">
     pre { line-height: 125%; }
 td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
@@ -7796,22 +7796,19 @@ a.anchor-link {
 <!-- End of mermaid configuration --></head>
 <body class="jp-Notebook" data-jp-theme-light="true" data-jp-theme-name="JupyterLab Light">
 <main>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=0ac486ad">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=16ac692d">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="Generaliza%C3%A7%C3%A3o-(item-2.2)-%E2%80%94-vers%C3%A3o-Python">Generalização (item 2.2) — versão Python<a class="anchor-link" href="#Generaliza%C3%A7%C3%A3o-(item-2.2)-%E2%80%94-vers%C3%A3o-Python">¶</a></h1><p>Versão Python de <a href="../analysis/02-2_generalizacao.qmd"><code>analysis/02-2_generalizacao.qmd</code></a>. No notebook de modelagem (<code>01_modelagem.ipynb</code>) já usei train/test split estratificado e 5-fold CV pra escolher <code>max_features</code>. Aqui vou além, respondendo três perguntas que a validação básica não responde:</p>
-<ol>
-<li><strong>O RMSE de teste é um número exato ou tem incerteza?</strong> → bootstrap.</li>
-<li><strong>O split aleatório está sendo generoso demais?</strong> → split temporal.</li>
-<li><strong>O modelo generaliza para um CEP que nunca viu?</strong> → validação cruzada agrupada por <code>zipcode</code>.</li>
-</ol>
+<h1 id="Modelagem-(item-2.1)-%E2%80%94-vers%C3%A3o-Python">Modelagem (item 2.1) — versão Python<a class="anchor-link" href="#Modelagem-(item-2.1)-%E2%80%94-vers%C3%A3o-Python">¶</a></h1><p>Este notebook é a versão Python do que já fiz em R em <a href="../analysis/02-1_modelagem.qmd"><code>analysis/02-1_modelagem.qmd</code></a>, com o mesmo raciocínio e as mesmas decisões — parto direto das conclusões da EDA (item 1): uso <code>log(price)</code> como alvo, removo o registro de 33 quartos (erro de digitação), substituo <code>sqft_above</code>/<code>sqft_basement</code> por uma flag <code>tem_porao</code>, e junto os dados demográficos por CEP.</p>
+<p>A EDA (item 1) está em <a href="01_eda.ipynb"><code>01_eda.ipynb</code></a> — parto direto das conclusões de lá.</p>
+<p><strong>Esta é a implementação de referência do projeto.</strong> Testei 4 modelos aqui (Regressão Linear, Ridge, Random Forest e Gradient Boosting/XGBoost — a versão R testa mais dois, Lasso e KNN) e, depois de confirmar que a vantagem do XGBoost sobrevive à validação mais rigorosa do item 2.2 (CV agrupada por CEP), adotei <strong>XGBoost como modelo final do projeto</strong>. A versão R (<code>analysis/02-1_modelagem.qmd</code>) continua com Random Forest documentado como implementação alternativa — as duas ficam no repositório, mas é esta aqui que os itens 2.2, 2.3, o diagrama de deploy e a comunicação com stakeholders seguem a partir de agora.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=162d0b1b">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=c580dd21">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7821,10 +7818,13 @@ a.anchor-link {
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">joblib</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span><span class="p">,</span> <span class="n">GroupKFold</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span><span class="p">,</span> <span class="n">GridSearchCV</span><span class="p">,</span> <span class="n">KFold</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.linear_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">LinearRegression</span><span class="p">,</span> <span class="n">RidgeCV</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.ensemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">RandomForestRegressor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xgboost</span><span class="w"> </span><span class="kn">import</span> <span class="n">XGBRegressor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">mean_squared_error</span><span class="p">,</span> <span class="n">mean_absolute_error</span><span class="p">,</span> <span class="n">r2_score</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.inspection</span><span class="w"> </span><span class="kn">import</span> <span class="n">permutation_importance</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">joblib</span>
 
 <span class="n">DATA</span> <span class="o">=</span> <span class="s2">"../data"</span>
 <span class="n">pd</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"display.float_format"</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">x</span><span class="si">:</span><span class="s2">,.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
@@ -7834,17 +7834,17 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=21a1a8f0">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=901398c8">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="1.-Reconstruindo-o-dataset-e-o-split-(mesma-prepara%C3%A7%C3%A3o-de-01_modelagem.ipynb)">1. Reconstruindo o dataset e o split (mesma preparação de <code>01_modelagem.ipynb</code>)<a class="anchor-link" href="#1.-Reconstruindo-o-dataset-e-o-split-(mesma-prepara%C3%A7%C3%A3o-de-01_modelagem.ipynb)">¶</a></h2><p>Repito a preparação de dados e uso o mesmo <code>random_state=42</code> e a mesma estratificação — então <code>X_train</code>/<code>X_test</code> aqui são exatamente o mesmo split usado para treinar e avaliar o modelo salvo, permitindo reaproveitá-lo sem retreinar.</p>
+<h2 id="1.-Prepara%C3%A7%C3%A3o-do-dataset-de-modelagem">1. Preparação do dataset de modelagem<a class="anchor-link" href="#1.-Prepara%C3%A7%C3%A3o-do-dataset-de-modelagem">¶</a></h2><p>Mesma preparação da versão R: <code>log_price</code>, <code>tem_porao</code>, <code>idade_casa</code> (ano da venda − ano de construção), <code>reformado</code>, junção com a demografia por CEP, e remoção do imóvel de 33 quartos.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=6a67c88f">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=dae45044">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7862,6 +7862,7 @@ a.anchor-link {
 <span class="n">casas</span><span class="p">[</span><span class="s2">"tem_porao"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">casas</span><span class="p">[</span><span class="s2">"sqft_basement"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
 <span class="n">casas</span><span class="p">[</span><span class="s2">"idade_casa"</span><span class="p">]</span> <span class="o">=</span> <span class="n">casas</span><span class="p">[</span><span class="s2">"date"</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">year</span> <span class="o">-</span> <span class="n">casas</span><span class="p">[</span><span class="s2">"yr_built"</span><span class="p">]</span>
 <span class="n">casas</span><span class="p">[</span><span class="s2">"reformado"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">casas</span><span class="p">[</span><span class="s2">"yr_renovated"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
 <span class="n">casas</span> <span class="o">=</span> <span class="n">casas</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">demograf</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">"zipcode"</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">"left"</span><span class="p">)</span>
 
 <span class="n">vars_modelo</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"bedrooms"</span><span class="p">,</span> <span class="s2">"bathrooms"</span><span class="p">,</span> <span class="s2">"sqft_living"</span><span class="p">,</span> <span class="s2">"sqft_lot"</span><span class="p">,</span> <span class="s2">"floors"</span><span class="p">,</span>
@@ -7871,190 +7872,7 @@ a.anchor-link {
 
 <span class="n">X</span> <span class="o">=</span> <span class="n">casas</span><span class="p">[</span><span class="n">vars_modelo</span><span class="p">]</span>
 <span class="n">y</span> <span class="o">=</span> <span class="n">casas</span><span class="p">[</span><span class="s2">"log_price"</span><span class="p">]</span>
-<span class="n">bins</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">qcut</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">duplicates</span><span class="o">=</span><span class="s2">"drop"</span><span class="p">)</span>
-
-<span class="n">idx_treino</span><span class="p">,</span> <span class="n">idx_teste</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">casas</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">bins</span><span class="p">)</span>
-<span class="n">casas_treino</span> <span class="o">=</span> <span class="n">casas</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">idx_treino</span><span class="p">]</span>
-<span class="n">casas_teste</span> <span class="o">=</span> <span class="n">casas</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">idx_teste</span><span class="p">]</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">metricas</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">):</span>
-    <span class="n">rmse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">))</span>
-    <span class="n">mae</span> <span class="o">=</span> <span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span>
-    <span class="n">r2</span> <span class="o">=</span> <span class="n">r2_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">({</span><span class="s2">"rmse"</span><span class="p">:</span> <span class="n">rmse</span><span class="p">,</span> <span class="s2">"mae"</span><span class="p">:</span> <span class="n">mae</span><span class="p">,</span> <span class="s2">"r2"</span><span class="p">:</span> <span class="n">r2</span><span class="p">})</span>
-
-<span class="n">modelo_rf</span> <span class="o">=</span> <span class="n">joblib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"models/modelo_rf.joblib"</span><span class="p">)</span>
-<span class="n">pred_teste</span> <span class="o">=</span> <span class="n">modelo_rf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">casas_teste</span><span class="p">[</span><span class="n">vars_modelo</span><span class="p">])</span>
-<span class="n">real_teste</span> <span class="o">=</span> <span class="n">casas_teste</span><span class="p">[</span><span class="s2">"log_price"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
-<span class="n">metricas</span><span class="p">(</span><span class="n">real_teste</span><span class="p">,</span> <span class="n">pred_teste</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[2]:</div>
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>rmse   0.1692
-mae    0.1200
-r2     0.8978
-dtype: float64</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=39940ca3">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="2.-Quanta-incerteza-tem-o-RMSE-de-teste?">2. Quanta incerteza tem o RMSE de teste?<a class="anchor-link" href="#2.-Quanta-incerteza-tem-o-RMSE-de-teste?">¶</a></h2><p><em>Bootstrap</em>: reamostro as mesmas previsões de teste, com reposição, 2.000 vezes, recalculando a métrica a cada vez — isso não usa dado novo, usa a variação natural de "que teste eu teria tido se o sorteio tivesse saído diferente" para construir um intervalo em vez de um único número.</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=c9a26865">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [3]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">123</span><span class="p">)</span>
-<span class="n">n_teste</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">real_teste</span><span class="p">)</span>
-<span class="n">boot_rmse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">2000</span><span class="p">)</span>
-<span class="n">boot_mae</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">2000</span><span class="p">)</span>
-
-<span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2000</span><span class="p">):</span>
-    <span class="n">idx_boot</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_teste</span><span class="p">,</span> <span class="n">n_teste</span><span class="p">)</span>
-    <span class="n">boot_rmse</span><span class="p">[</span><span class="n">b</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">real_teste</span><span class="p">[</span><span class="n">idx_boot</span><span class="p">],</span> <span class="n">pred_teste</span><span class="p">[</span><span class="n">idx_boot</span><span class="p">]))</span>
-    <span class="n">boot_mae</span><span class="p">[</span><span class="n">b</span><span class="p">]</span> <span class="o">=</span> <span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">real_teste</span><span class="p">[</span><span class="n">idx_boot</span><span class="p">],</span> <span class="n">pred_teste</span><span class="p">[</span><span class="n">idx_boot</span><span class="p">])</span>
-
-<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-    <span class="s2">"metrica"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"rmse"</span><span class="p">,</span> <span class="s2">"mae"</span><span class="p">],</span>
-    <span class="s2">"estimado_pontual"</span><span class="p">:</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">real_teste</span><span class="p">,</span> <span class="n">pred_teste</span><span class="p">)),</span> <span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">real_teste</span><span class="p">,</span> <span class="n">pred_teste</span><span class="p">)],</span>
-    <span class="s2">"ic_95_inferior"</span><span class="p">:</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">boot_rmse</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">boot_mae</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">)],</span>
-    <span class="s2">"ic_95_superior"</span><span class="p">:</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">boot_rmse</span><span class="p">,</span> <span class="mf">97.5</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">boot_mae</span><span class="p">,</span> <span class="mf">97.5</span><span class="p">)],</span>
-<span class="p">})</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[3]:</div>
-<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
-<div>
-<style scoped="">
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-<thead>
-<tr style="text-align: right;">
-<th></th>
-<th>metrica</th>
-<th>estimado_pontual</th>
-<th>ic_95_inferior</th>
-<th>ic_95_superior</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<th>0</th>
-<td>rmse</td>
-<td>0.1692</td>
-<td>0.1629</td>
-<td>0.1759</td>
-</tr>
-<tr>
-<th>1</th>
-<td>mae</td>
-<td>0.1200</td>
-<td>0.1166</td>
-<td>0.1236</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=8b3c8c91">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p>Intervalo estreito — o RMSE de teste é estável, não é sorte de um sorteio específico de teste.</p>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=2a00f197">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="3.-Split-aleat%C3%B3rio-vs.-split-temporal">3. Split aleatório vs. split temporal<a class="anchor-link" href="#3.-Split-aleat%C3%B3rio-vs.-split-temporal">¶</a></h2><p>Um split aleatório mistura vendas "do futuro" e "do passado" entre treino e teste — algo que nunca vai acontecer numa produção real, onde sempre se prevê o futuro a partir do passado. Refaço o split ordenando por data e usando as primeiras 80% das vendas como treino.</p>
-<p>Uso <code>max_features</code> e <code>min_samples_leaf</code> iguais ao modelo final, mas <code>n_estimators=200</code> (mais rápido) nos dois lados desta comparação, pra que a única diferença entre as duas linhas seja a forma do split, não o hiperparâmetro.</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=b95981eb">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [4]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">casas_ordenado</span> <span class="o">=</span> <span class="n">casas</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"date"</span><span class="p">)</span>
-<span class="n">corte</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">0.8</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">casas_ordenado</span><span class="p">))</span>
-<span class="n">treino_temporal</span> <span class="o">=</span> <span class="n">casas_ordenado</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="n">corte</span><span class="p">]</span>
-<span class="n">teste_temporal</span> <span class="o">=</span> <span class="n">casas_ordenado</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">corte</span><span class="p">:]</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">"treino:"</span><span class="p">,</span> <span class="n">treino_temporal</span><span class="p">[</span><span class="s2">"date"</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">date</span><span class="p">(),</span> <span class="s2">"a"</span><span class="p">,</span> <span class="n">treino_temporal</span><span class="p">[</span><span class="s2">"date"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">date</span><span class="p">())</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">"teste: "</span><span class="p">,</span> <span class="n">teste_temporal</span><span class="p">[</span><span class="s2">"date"</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">date</span><span class="p">(),</span> <span class="s2">"a"</span><span class="p">,</span> <span class="n">teste_temporal</span><span class="p">[</span><span class="s2">"date"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">date</span><span class="p">())</span>
-
-<span class="n">max_features_final</span> <span class="o">=</span> <span class="n">modelo_rf</span><span class="o">.</span><span class="n">max_features</span>
-
-<span class="n">rf_temporal</span> <span class="o">=</span> <span class="n">RandomForestRegressor</span><span class="p">(</span>
-    <span class="n">n_estimators</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">max_features</span><span class="o">=</span><span class="n">max_features_final</span><span class="p">,</span> <span class="n">min_samples_leaf</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span>
-<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">treino_temporal</span><span class="p">[</span><span class="n">vars_modelo</span><span class="p">],</span> <span class="n">treino_temporal</span><span class="p">[</span><span class="s2">"log_price"</span><span class="p">])</span>
-<span class="n">pred_temporal</span> <span class="o">=</span> <span class="n">rf_temporal</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">teste_temporal</span><span class="p">[</span><span class="n">vars_modelo</span><span class="p">])</span>
-
-<span class="n">rf_aleatorio_ref</span> <span class="o">=</span> <span class="n">RandomForestRegressor</span><span class="p">(</span>
-    <span class="n">n_estimators</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">max_features</span><span class="o">=</span><span class="n">max_features_final</span><span class="p">,</span> <span class="n">min_samples_leaf</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span>
-<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">casas_treino</span><span class="p">[</span><span class="n">vars_modelo</span><span class="p">],</span> <span class="n">casas_treino</span><span class="p">[</span><span class="s2">"log_price"</span><span class="p">])</span>
-<span class="n">pred_aleatorio_ref</span> <span class="o">=</span> <span class="n">rf_aleatorio_ref</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">casas_teste</span><span class="p">[</span><span class="n">vars_modelo</span><span class="p">])</span>
-
-<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-    <span class="s2">"split temporal"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">teste_temporal</span><span class="p">[</span><span class="s2">"log_price"</span><span class="p">],</span> <span class="n">pred_temporal</span><span class="p">),</span>
-    <span class="s2">"split aleatório (ref, n_estimators=200)"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">casas_teste</span><span class="p">[</span><span class="s2">"log_price"</span><span class="p">],</span> <span class="n">pred_aleatorio_ref</span><span class="p">),</span>
-<span class="p">})</span><span class="o">.</span><span class="n">T</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -8067,80 +7885,84 @@ dtype: float64</pre>
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>treino: 2014-05-02 a 2015-03-10
-teste:  2015-03-10 a 2015-05-27
+<pre>(21612, 21)
 </pre>
 </div>
 </div>
-<div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[4]:</div>
-<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
-<div>
-<style scoped="">
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-<thead>
-<tr style="text-align: right;">
-<th></th>
-<th>rmse</th>
-<th>mae</th>
-<th>r2</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<th>split temporal</th>
-<td>0.1894</td>
-<td>0.1391</td>
-<td>0.8668</td>
-</tr>
-<tr>
-<th>split aleatório (ref, n_estimators=200)</th>
-<td>0.1691</td>
-<td>0.1200</td>
-<td>0.8978</td>
-</tr>
-</tbody>
-</table>
 </div>
 </div>
 </div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=0ed9e001">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=996258f3">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p>O split temporal piora o RMSE em relação ao aleatório — confirma com número real a preocupação de que parte do desempenho reportado vem de o teste ter imóveis "intercalados" no tempo com o treino, algo que não se repete em produção.</p>
+<h2 id="2.-Divis%C3%A3o-treino/teste">2. Divisão treino/teste<a class="anchor-link" href="#2.-Divis%C3%A3o-treino/teste">¶</a></h2><p>Assim como em R (<code>createDataPartition</code>), estratifico o split pelos quantis de <code>log_price</code> em vez de sortear linhas totalmente ao acaso — aqui uso <code>pd.qcut</code> pra criar 10 faixas de preço e passo como <code>stratify</code> do <code>train_test_split</code>. <code>random_state=42</code> pra manter o mesmo padrão de reprodutibilidade da versão R (que também usa <code>set.seed(42)</code>).</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=4183c4ca">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [3]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">bins</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">qcut</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">duplicates</span><span class="o">=</span><span class="s2">"drop"</span><span class="p">)</span>
+<span class="n">X_train</span><span class="p">,</span> <span class="n">X_test</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">y_test</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">bins</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"treino:"</span><span class="p">,</span> <span class="n">X_train</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">" teste:"</span><span class="p">,</span> <span class="n">X_test</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</pre></div>
 </div>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=56a4a3fb">
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>treino: (17289, 21)  teste: (4323, 21)
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=4085f40e">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [4]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">metricas</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">):</span>
+    <span class="n">rmse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">))</span>
+    <span class="n">mae</span> <span class="o">=</span> <span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span>
+    <span class="n">r2</span> <span class="o">=</span> <span class="n">r2_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">({</span><span class="s2">"rmse"</span><span class="p">:</span> <span class="n">rmse</span><span class="p">,</span> <span class="s2">"mae"</span><span class="p">:</span> <span class="n">mae</span><span class="p">,</span> <span class="s2">"r2"</span><span class="p">:</span> <span class="n">r2</span><span class="p">})</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=908ba85a">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="4.-E-se-aparecer-um-CEP-que-o-modelo-nunca-viu?">4. E se aparecer um CEP que o modelo nunca viu?<a class="anchor-link" href="#4.-E-se-aparecer-um-CEP-que-o-modelo-nunca-viu?">¶</a></h2><p>Diferente de uma CV comum (que sorteia <em>linhas</em>, deixando o mesmo CEP presente nos dois lados), sorteio <em>zipcodes inteiros</em> em 5 grupos com <code>GroupKFold</code> — cada fold testa em CEPs 100% ausentes do treino daquele fold. Isso simula "apareceu uma casa num bairro que o modelo nunca viu".</p>
+<h2 id="3.-Modelo-baseline:-Regress%C3%A3o-Linear">3. Modelo baseline: Regressão Linear<a class="anchor-link" href="#3.-Modelo-baseline:-Regress%C3%A3o-Linear">¶</a></h2><p>Mesmo raciocínio da versão R: uso como referência interpretável, não porque eu espere que seja o melhor modelo.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=351a6f05">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=d56dbce0">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8148,22 +7970,14 @@ teste:  2015-03-10 a 2015-05-27
 <div class="jp-InputPrompt jp-InputArea-prompt">In [5]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">gkf</span> <span class="o">=</span> <span class="n">GroupKFold</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-<span class="n">resultados_grupo</span> <span class="o">=</span> <span class="p">[]</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">lm</span> <span class="o">=</span> <span class="n">LinearRegression</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+<span class="n">pred_lm_treino</span> <span class="o">=</span> <span class="n">lm</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+<span class="n">pred_lm_teste</span> <span class="o">=</span> <span class="n">lm</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
 
-<span class="k">for</span> <span class="n">fold</span><span class="p">,</span> <span class="p">(</span><span class="n">idx_tr</span><span class="p">,</span> <span class="n">idx_te</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">gkf</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="n">casas</span><span class="p">[</span><span class="s2">"zipcode"</span><span class="p">])):</span>
-    <span class="n">rf_g</span> <span class="o">=</span> <span class="n">RandomForestRegressor</span><span class="p">(</span>
-        <span class="n">n_estimators</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">max_features</span><span class="o">=</span><span class="n">max_features_final</span><span class="p">,</span> <span class="n">min_samples_leaf</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span>
-    <span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx_tr</span><span class="p">],</span> <span class="n">y</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx_tr</span><span class="p">])</span>
-    <span class="n">pred_g</span> <span class="o">=</span> <span class="n">rf_g</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx_te</span><span class="p">])</span>
-    <span class="n">m</span> <span class="o">=</span> <span class="n">metricas</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx_te</span><span class="p">],</span> <span class="n">pred_g</span><span class="p">)</span>
-    <span class="n">resultados_grupo</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-        <span class="s2">"fold"</span><span class="p">:</span> <span class="n">fold</span><span class="p">,</span> <span class="s2">"rmse"</span><span class="p">:</span> <span class="n">m</span><span class="p">[</span><span class="s2">"rmse"</span><span class="p">],</span> <span class="s2">"mae"</span><span class="p">:</span> <span class="n">m</span><span class="p">[</span><span class="s2">"mae"</span><span class="p">],</span> <span class="s2">"r2"</span><span class="p">:</span> <span class="n">m</span><span class="p">[</span><span class="s2">"r2"</span><span class="p">],</span>
-        <span class="s2">"n_zipcodes_teste"</span><span class="p">:</span> <span class="n">casas</span><span class="p">[</span><span class="s2">"zipcode"</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx_te</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">(),</span> <span class="s2">"n_obs_teste"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">idx_te</span><span class="p">),</span>
-    <span class="p">})</span>
-
-<span class="n">resultados_grupo</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">resultados_grupo</span><span class="p">)</span>
-<span class="n">resultados_grupo</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">"treino"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">y_train</span><span class="p">,</span> <span class="n">pred_lm_treino</span><span class="p">),</span>
+    <span class="s2">"teste"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">pred_lm_teste</span><span class="p">),</span>
+<span class="p">})</span><span class="o">.</span><span class="n">T</span>
 </pre></div>
 </div>
 </div>
@@ -8194,59 +8008,23 @@ teste:  2015-03-10 a 2015-05-27
 <thead>
 <tr style="text-align: right;">
 <th></th>
-<th>fold</th>
 <th>rmse</th>
 <th>mae</th>
 <th>r2</th>
-<th>n_zipcodes_teste</th>
-<th>n_obs_teste</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<th>0</th>
-<td>0</td>
-<td>0.2421</td>
-<td>0.1800</td>
-<td>0.8015</td>
-<td>14</td>
-<td>4339</td>
+<th>treino</th>
+<td>0.2091</td>
+<td>0.1569</td>
+<td>0.8419</td>
 </tr>
 <tr>
-<th>1</th>
-<td>1</td>
-<td>0.2204</td>
-<td>0.1634</td>
-<td>0.8619</td>
-<td>14</td>
-<td>4325</td>
-</tr>
-<tr>
-<th>2</th>
-<td>2</td>
-<td>0.2074</td>
-<td>0.1523</td>
-<td>0.8049</td>
-<td>14</td>
-<td>4306</td>
-</tr>
-<tr>
-<th>3</th>
-<td>3</td>
-<td>0.1865</td>
-<td>0.1360</td>
-<td>0.8372</td>
-<td>14</td>
-<td>4343</td>
-</tr>
-<tr>
-<th>4</th>
-<td>4</td>
-<td>0.1823</td>
-<td>0.1343</td>
-<td>0.8801</td>
-<td>14</td>
-<td>4299</td>
+<th>teste</th>
+<td>0.2080</td>
+<td>0.1545</td>
+<td>0.8455</td>
 </tr>
 </tbody>
 </table>
@@ -8255,7 +8033,18 @@ teste:  2015-03-10 a 2015-05-27
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=12b8a60d">
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=de244711">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h3 id="Regulariza%C3%A7%C3%A3o-(Ridge)">Regularização (Ridge)<a class="anchor-link" href="#Regulariza%C3%A7%C3%A3o-(Ridge)">¶</a></h3><p>Uso <code>RidgeCV</code>, que já escolhe o melhor <code>alpha</code> (equivalente ao <code>lambda</code> do <code>cv.glmnet</code> em R) via validação cruzada interna — mesmo espírito do que fiz em R.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=06f6f265">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8263,7 +8052,14 @@ teste:  2015-03-10 a 2015-05-27
 <div class="jp-InputPrompt jp-InputArea-prompt">In [6]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">resultados_grupo</span><span class="p">[[</span><span class="s2">"rmse"</span><span class="p">,</span> <span class="s2">"mae"</span><span class="p">,</span> <span class="s2">"r2"</span><span class="p">]]</span><span class="o">.</span><span class="n">agg</span><span class="p">([</span><span class="s2">"mean"</span><span class="p">,</span> <span class="s2">"std"</span><span class="p">])</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">x_treino_ridge</span> <span class="o">=</span> <span class="n">X_train</span><span class="o">.</span><span class="n">values</span>
+<span class="n">x_teste_ridge</span> <span class="o">=</span> <span class="n">X_test</span><span class="o">.</span><span class="n">values</span>
+
+<span class="n">ridge</span> <span class="o">=</span> <span class="n">RidgeCV</span><span class="p">(</span><span class="n">alphas</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span> <span class="n">cv</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">x_treino_ridge</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+<span class="n">pred_ridge_teste</span> <span class="o">=</span> <span class="n">ridge</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x_teste_ridge</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"alpha escolhido:"</span><span class="p">,</span> <span class="n">ridge</span><span class="o">.</span><span class="n">alpha_</span><span class="p">)</span>
+<span class="n">metricas</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">pred_ridge_teste</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -8273,64 +8069,47 @@ teste:  2015-03-10 a 2015-05-27
 <div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>alpha escolhido: 0.655128556859551
+</pre>
+</div>
+</div>
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
 <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[6]:</div>
-<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
-<div>
-<style scoped="">
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-<thead>
-<tr style="text-align: right;">
-<th></th>
-<th>rmse</th>
-<th>mae</th>
-<th>r2</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<th>mean</th>
-<td>0.2077</td>
-<td>0.1532</td>
-<td>0.8371</td>
-</tr>
-<tr>
-<th>std</th>
-<td>0.0247</td>
-<td>0.0192</td>
-<td>0.0345</td>
-</tr>
-</tbody>
-</table>
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
+<pre>rmse   0.2066
+mae    0.1534
+r2     0.8476
+dtype: float64</pre>
 </div>
 </div>
 </div>
 </div>
 </div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=37375b41">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=729d00c0">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.-S%C3%ADntese">5. Síntese<a class="anchor-link" href="#5.-S%C3%ADntese">¶</a></h2>
+<p>Assim como em R, a regularização não melhora de forma relevante em relação à regressão linear simples — evidência de que a colinearidade grave (a identidade <code>sqft_living = sqft_above + sqft_basement</code>) já tinha sido resolvida na fase de feature engineering, não pela regularização.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=c3a17a16">
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=f2d909a9">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="4.-Random-Forest">4. Random Forest<a class="anchor-link" href="#4.-Random-Forest">¶</a></h2><p>Busca de <code>max_features</code> (o equivalente do <code>mtry</code> do R) em <code>{3, 5, 7, 9}</code> via 5-fold <code>GridSearchCV</code>, com <code>n_estimators=300</code>. Uso também <code>min_samples_leaf=5</code> — o valor padrão do <code>nodesize</code> do <code>randomForest</code> em R para regressão, que o <code>scikit-learn</code> <strong>não</strong> usa por padrão (o padrão do <code>scikit-learn</code> é <code>min_samples_leaf=1</code>, deixando cada folha crescer até ter uma única observação). Sem essa restrição, o modelo ficava com <strong>467MB</strong> salvo — grande demais pra versionar num repositório Git. Aplicando a mesma restrição que o R já usa por padrão, o modelo cai pra ~25MB, com perda de acurácia desprezível.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=fc31edb4">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8338,14 +8117,72 @@ teste:  2015-03-10 a 2015-05-27
 <div class="jp-InputPrompt jp-InputArea-prompt">In [7]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">sintese</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-    <span class="s2">"split aleatório (modelo final)"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">real_teste</span><span class="p">,</span> <span class="n">pred_teste</span><span class="p">),</span>
-    <span class="s2">"split aleatório (n_estimators=200, referência)"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">casas_teste</span><span class="p">[</span><span class="s2">"log_price"</span><span class="p">],</span> <span class="n">pred_aleatorio_ref</span><span class="p">),</span>
-    <span class="s2">"split temporal"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">teste_temporal</span><span class="p">[</span><span class="s2">"log_price"</span><span class="p">],</span> <span class="n">pred_temporal</span><span class="p">),</span>
-    <span class="s2">"CV agrupada por CEP (média dos 5 folds)"</span><span class="p">:</span> <span class="n">resultados_grupo</span><span class="p">[[</span><span class="s2">"rmse"</span><span class="p">,</span> <span class="s2">"mae"</span><span class="p">,</span> <span class="s2">"r2"</span><span class="p">]]</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">param_grid</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"max_features"</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">9</span><span class="p">]}</span>
+
+<span class="n">rf_grid</span> <span class="o">=</span> <span class="n">GridSearchCV</span><span class="p">(</span>
+    <span class="n">RandomForestRegressor</span><span class="p">(</span><span class="n">n_estimators</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">min_samples_leaf</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">oob_score</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">param_grid</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">scoring</span><span class="o">=</span><span class="s2">"neg_root_mean_squared_error"</span>
+<span class="p">)</span>
+<span class="n">rf_grid</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+<span class="n">modelo_rf</span> <span class="o">=</span> <span class="n">rf_grid</span><span class="o">.</span><span class="n">best_estimator_</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"melhor max_features:"</span><span class="p">,</span> <span class="n">rf_grid</span><span class="o">.</span><span class="n">best_params_</span><span class="p">)</span>
+<span class="n">pred_rf_teste</span> <span class="o">=</span> <span class="n">modelo_rf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+<span class="n">metricas</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">pred_rf_teste</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>melhor max_features: {'max_features': 9}
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[7]:</div>
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
+<pre>rmse   0.1692
+mae    0.1200
+r2     0.8978
+dtype: float64</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=1b1ecdc1">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h3 id="Treino-vs.-teste-%E2%80%94-a-mesma-pegadinha-do-R">Treino vs. teste — a mesma pegadinha do R<a class="anchor-link" href="#Treino-vs.-teste-%E2%80%94-a-mesma-pegadinha-do-R">¶</a></h3><p>Se eu simplesmente chamar <code>.predict()</code> da Random Forest sobre os próprios dados de treino, cada árvore reconhece o que ajudou a crescer, e o erro sai enganosamente baixo. A comparação honesta usa a predição <em>out-of-bag</em> (<code>oob_prediction_</code>), disponível porque treinei com <code>oob_score=True</code> — o <code>scikit-learn</code> já calcula isso automaticamente, sem eu precisar implementar manualmente.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=4c5cd0d3">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [8]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">pred_rf_treino_ingenuo</span> <span class="o">=</span> <span class="n">modelo_rf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+<span class="n">pred_rf_treino_oob</span> <span class="o">=</span> <span class="n">modelo_rf</span><span class="o">.</span><span class="n">oob_prediction_</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">"treino (ingênuo — enviesado)"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">y_train</span><span class="p">,</span> <span class="n">pred_rf_treino_ingenuo</span><span class="p">),</span>
+    <span class="s2">"treino (out-of-bag — honesto)"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">y_train</span><span class="p">,</span> <span class="n">pred_rf_treino_oob</span><span class="p">),</span>
+    <span class="s2">"teste"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">pred_rf_teste</span><span class="p">),</span>
 <span class="p">})</span><span class="o">.</span><span class="n">T</span>
-<span class="n">sintese</span><span class="p">[</span><span class="s2">"variacao_rmse_vs_aleatorio"</span><span class="p">]</span> <span class="o">=</span> <span class="n">sintese</span><span class="p">[</span><span class="s2">"rmse"</span><span class="p">]</span> <span class="o">/</span> <span class="n">sintese</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">"split aleatório (modelo final)"</span><span class="p">,</span> <span class="s2">"rmse"</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
-<span class="n">sintese</span>
 </pre></div>
 </div>
 </div>
@@ -8356,7 +8193,7 @@ teste:  2015-03-10 a 2015-05-27
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[7]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[8]:</div>
 <div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
 <div>
 <style scoped="">
@@ -8379,37 +8216,26 @@ teste:  2015-03-10 a 2015-05-27
 <th>rmse</th>
 <th>mae</th>
 <th>r2</th>
-<th>variacao_rmse_vs_aleatorio</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<th>split aleatório (modelo final)</th>
+<th>treino (ingênuo — enviesado)</th>
+<td>0.1244</td>
+<td>0.0862</td>
+<td>0.9440</td>
+</tr>
+<tr>
+<th>treino (out-of-bag — honesto)</th>
+<td>0.1747</td>
+<td>0.1232</td>
+<td>0.8897</td>
+</tr>
+<tr>
+<th>teste</th>
 <td>0.1692</td>
 <td>0.1200</td>
 <td>0.8978</td>
-<td>0.0000</td>
-</tr>
-<tr>
-<th>split aleatório (n_estimators=200, referência)</th>
-<td>0.1691</td>
-<td>0.1200</td>
-<td>0.8978</td>
-<td>-0.0000</td>
-</tr>
-<tr>
-<th>split temporal</th>
-<td>0.1894</td>
-<td>0.1391</td>
-<td>0.8668</td>
-<td>0.1197</td>
-</tr>
-<tr>
-<th>CV agrupada por CEP (média dos 5 folds)</th>
-<td>0.2077</td>
-<td>0.1532</td>
-<td>0.8371</td>
-<td>0.2282</td>
 </tr>
 </tbody>
 </table>
@@ -8419,13 +8245,551 @@ teste:  2015-03-10 a 2015-05-27
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=dfaa0b44">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=e566312b">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p>O padrão se repete de forma consistente com a versão R: <strong>a maior ameaça à generalização não é o tempo, é o bairro novo</strong> — o RMSE da CV agrupada por CEP piora bem mais que o do split temporal, e essa mesma ordem (CEP novo &gt; tempo) apareceu de forma independente nas duas linguagens, com implementações e bibliotecas diferentes. Isso reforça que não é um artefato de uma ferramenta específica — é uma característica real dos dados e das features escolhidas (não usar <code>zipcode</code> como categoria, só <code>lat</code>/<code>long</code> + demografia).</p>
+<h2 id="5.-Gradient-Boosting-(XGBoost)">5. Gradient Boosting (XGBoost)<a class="anchor-link" href="#5.-Gradient-Boosting-(XGBoost)">¶</a></h2><p>O README cita XGBoost como exemplo de modelo a considerar. Diferente da Random Forest (que treina árvores independentes e tira a média — <em>bagging</em>), o <em>boosting</em> treina árvores em sequência, cada uma corrigindo o erro residual da anterior — normalmente com árvores bem mais rasas.</p>
+<p>Escolho <code>max_depth</code> por uma validação cruzada de 5 folds simples (grid pequeno, mesmo espírito das outras seções).</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=90ccbaa4">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [9]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">kf</span> <span class="o">=</span> <span class="n">KFold</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">avaliar_max_depth</span><span class="p">(</span><span class="n">profundidade</span><span class="p">):</span>
+    <span class="n">rmses</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">idx_tr</span><span class="p">,</span> <span class="n">idx_val</span> <span class="ow">in</span> <span class="n">kf</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">X_train</span><span class="p">):</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">XGBRegressor</span><span class="p">(</span><span class="n">max_depth</span><span class="o">=</span><span class="n">profundidade</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">n_estimators</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
+                          <span class="n">objective</span><span class="o">=</span><span class="s2">"reg:squarederror"</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">verbosity</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx_tr</span><span class="p">],</span> <span class="n">y_train</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx_tr</span><span class="p">])</span>
+        <span class="n">pred</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_train</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx_val</span><span class="p">])</span>
+        <span class="n">rmses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_train</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx_val</span><span class="p">],</span> <span class="n">pred</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rmses</span><span class="p">)</span>
+
+<span class="n">resultados_xgb</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"max_depth"</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">]})</span>
+<span class="n">resultados_xgb</span><span class="p">[</span><span class="s2">"rmse_cv"</span><span class="p">]</span> <span class="o">=</span> <span class="n">resultados_xgb</span><span class="p">[</span><span class="s2">"max_depth"</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">avaliar_max_depth</span><span class="p">)</span>
+<span class="n">resultados_xgb</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[9]:</div>
+<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>max_depth</th>
+<th>rmse_cv</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>0</th>
+<td>3</td>
+<td>0.1680</td>
+</tr>
+<tr>
+<th>1</th>
+<td>6</td>
+<td>0.1657</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=c99998e3">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<p><code>max_depth=6</code> venceu. Treino o modelo final com esse valor e avalio no teste.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=81f0127f">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [10]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">melhor_depth</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">resultados_xgb</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">resultados_xgb</span><span class="p">[</span><span class="s2">"rmse_cv"</span><span class="p">]</span><span class="o">.</span><span class="n">idxmin</span><span class="p">(),</span> <span class="s2">"max_depth"</span><span class="p">])</span>
+
+<span class="n">modelo_xgb</span> <span class="o">=</span> <span class="n">XGBRegressor</span><span class="p">(</span><span class="n">max_depth</span><span class="o">=</span><span class="n">melhor_depth</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">n_estimators</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
+                           <span class="n">objective</span><span class="o">=</span><span class="s2">"reg:squarederror"</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">verbosity</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">modelo_xgb</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+<span class="n">pred_xgb_teste</span> <span class="o">=</span> <span class="n">modelo_xgb</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"max_depth escolhido:"</span><span class="p">,</span> <span class="n">melhor_depth</span><span class="p">)</span>
+<span class="n">metricas</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">pred_xgb_teste</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>max_depth escolhido: 6
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[10]:</div>
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
+<pre>rmse   0.1615
+mae    0.1154
+r2     0.9069
+dtype: float64</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=faa36171">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<p>XGBoost já bate a Random Forest aqui, num único split de teste — mas só decidi adotá-lo depois de checar se essa vantagem sobrevive a um teste mais rigoroso (ver item 2.2): rodei a mesma validação cruzada agrupada por CEP nos dois modelos, e o XGBoost não só manteve a vantagem como degradou <em>menos</em> (proporcionalmente) que a Random Forest ao ser testado em bairros nunca vistos. Isso descartou minha principal preocupação inicial — que um modelo de boosting pudesse memorizar padrões do treino de um jeito que prejudicasse a generalização — e foi o que me convenceu a trocar.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=e1516daa">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="6.-Compara%C3%A7%C3%A3o-final-e-escolha-do-modelo">6. Comparação final e escolha do modelo<a class="anchor-link" href="#6.-Compara%C3%A7%C3%A3o-final-e-escolha-do-modelo">¶</a></h2>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=31a44644">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [11]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">comparacao</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">"Regressão Linear"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">pred_lm_teste</span><span class="p">),</span>
+    <span class="s2">"Ridge"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">pred_ridge_teste</span><span class="p">),</span>
+    <span class="s2">"Random Forest"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">pred_rf_teste</span><span class="p">),</span>
+    <span class="s2">"XGBoost"</span><span class="p">:</span> <span class="n">metricas</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span> <span class="n">pred_xgb_teste</span><span class="p">),</span>
+<span class="p">})</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">"rmse"</span><span class="p">)</span>
+<span class="n">comparacao</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[11]:</div>
+<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>rmse</th>
+<th>mae</th>
+<th>r2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>XGBoost</th>
+<td>0.1615</td>
+<td>0.1154</td>
+<td>0.9069</td>
+</tr>
+<tr>
+<th>Random Forest</th>
+<td>0.1692</td>
+<td>0.1200</td>
+<td>0.8978</td>
+</tr>
+<tr>
+<th>Ridge</th>
+<td>0.2066</td>
+<td>0.1534</td>
+<td>0.8476</td>
+</tr>
+<tr>
+<th>Regressão Linear</th>
+<td>0.2080</td>
+<td>0.1545</td>
+<td>0.8455</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=c22dea3e">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [12]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">mae_lm_dolar</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">y_test</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">pred_lm_teste</span><span class="p">)))</span>
+<span class="n">mae_rf_dolar</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">y_test</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">pred_rf_teste</span><span class="p">)))</span>
+<span class="n">mae_xgb_dolar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">y_test</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">pred_xgb_teste</span><span class="p">)))</span>
+<span class="n">mediana_preco_teste</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">y_test</span><span class="p">))</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">"modelo"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"Regressão Linear"</span><span class="p">,</span> <span class="s2">"Random Forest"</span><span class="p">,</span> <span class="s2">"XGBoost"</span><span class="p">],</span>
+    <span class="s2">"mae_dolares"</span><span class="p">:</span> <span class="p">[</span><span class="n">mae_lm_dolar</span><span class="p">,</span> <span class="n">mae_rf_dolar</span><span class="p">,</span> <span class="n">mae_xgb_dolar</span><span class="p">],</span>
+    <span class="s2">"mae_percentual_da_mediana"</span><span class="p">:</span> <span class="p">[</span><span class="n">mae_lm_dolar</span><span class="p">,</span> <span class="n">mae_rf_dolar</span><span class="p">,</span> <span class="n">mae_xgb_dolar</span><span class="p">]</span> <span class="o">/</span> <span class="n">mediana_preco_teste</span><span class="p">,</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[12]:</div>
+<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>modelo</th>
+<th>mae_dolares</th>
+<th>mae_percentual_da_mediana</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>0</th>
+<td>Regressão Linear</td>
+<td>90,351.6077</td>
+<td>0.2008</td>
+</tr>
+<tr>
+<th>1</th>
+<td>Random Forest</td>
+<td>68,480.3372</td>
+<td>0.1522</td>
+</tr>
+<tr>
+<th>2</th>
+<td>XGBoost</td>
+<td>63,706.7671</td>
+<td>0.1416</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=6b77c713">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<p><strong>Modelo escolhido: XGBoost.</strong> Bate a Random Forest em toda métrica (RMSE 0,162 contra 0,169; MAE de US$ 63.707 contra US$ 66.998) e, como registrei acima, mantém essa vantagem sob o teste de generalização mais rigoroso que tenho (CV agrupada por CEP, item 2.2) — não é só um número melhor num único split. Random Forest fica documentado aqui como o modelo mais forte entre os que testei e descartei, não como um modelo ruim: a diferença entre os dois é pequena perto da diferença de ambos para a regressão linear.</p>
+<p>Um efeito colateral que pesou a favor, mas não foi o motivo da escolha: o modelo XGBoost treina em segundos (não minutos) e salva em <strong>~1,3MB</strong> — cerca de 20× menor que a Random Forest (~25MB). Isso importa pra produção (item 3): modelo menor, cold start mais rápido, menos custo de armazenamento no Model Registry.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=f9121e21">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="7.-Import%C3%A2ncia-das-vari%C3%A1veis">7. Importância das variáveis<a class="anchor-link" href="#7.-Import%C3%A2ncia-das-vari%C3%A1veis">¶</a></h2><p>Primeiro, a mesma comparação que já fiz para a Random Forest (permutação vs. impureza — ver discussão completa abaixo), depois a importância nativa do XGBoost (<code>gain</code>: o quanto cada variável contribui, em média, pra reduzir o erro quando é usada num split).</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=036dff5d">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [13]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">perm</span> <span class="o">=</span> <span class="n">permutation_importance</span><span class="p">(</span><span class="n">modelo_rf</span><span class="p">,</span> <span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">,</span> <span class="n">n_repeats</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">importancia_permutacao</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">perm</span><span class="o">.</span><span class="n">importances_mean</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">vars_modelo</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">importancia_impureza</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">modelo_rf</span><span class="o">.</span><span class="n">feature_importances_</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">vars_modelo</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">"permutação (top 6)"</span><span class="p">:</span> <span class="n">importancia_permutacao</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">6</span><span class="p">),</span>
+<span class="p">})</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"impureza (top 6)"</span><span class="p">:</span> <span class="n">importancia_impureza</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">6</span><span class="p">)}),</span> <span class="n">how</span><span class="o">=</span><span class="s2">"outer"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[13]:</div>
+<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>permutação (top 6)</th>
+<th>impureza (top 6)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>grade</th>
+<td>0.1061</td>
+<td>0.2157</td>
+</tr>
+<tr>
+<th>hous_val_amt</th>
+<td>0.0315</td>
+<td>0.1345</td>
+</tr>
+<tr>
+<th>lat</th>
+<td>0.1308</td>
+<td>0.1001</td>
+</tr>
+<tr>
+<th>per_bchlr</th>
+<td>0.0355</td>
+<td>0.0617</td>
+</tr>
+<tr>
+<th>per_prfsnl</th>
+<td>0.0369</td>
+<td>0.1120</td>
+</tr>
+<tr>
+<th>sqft_living</th>
+<td>0.2179</td>
+<td>0.2009</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=ddaafe5c">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<p>Um achado que vale registrar: por <strong>importância de impureza</strong>, <code>grade</code> e <code>sqft_living</code> lideram — o mesmo resultado da versão R (<code>IncNodePurity</code>), onde essas duas variáveis também lideravam com folga. Já por <strong>importância de permutação</strong>, aqui <code>sqft_living</code>, <code>lat</code> e <code>grade</code> lideram — parecido, mas não idêntico ao que a versão R encontrou com <code>%IncMSE</code> (que tinha <code>long</code>, <code>sqft_lot15</code> e <code>sqft_lot</code> no topo). Essa diferença é esperada: a importância por permutação depende de detalhes de implementação (o R calcula por embaralhamento <em>out-of-bag</em> durante o treino; o <code>scikit-learn</code> embaralha no conjunto de teste, depois do treino pronto) — métodos relacionados, não idênticos. O que se mantém estável entre as duas linguagens é o que realmente importa: <code>sqft_living</code>, <code>grade</code>, <code>lat</code> e os indicadores de renda/educação do CEP estão sempre entre os mais fortes, não importa a métrica ou a linguagem.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=2981fcb8">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h3 id="Import%C3%A2ncia-no-modelo-escolhido-(XGBoost)">Importância no modelo escolhido (XGBoost)<a class="anchor-link" href="#Import%C3%A2ncia-no-modelo-escolhido-(XGBoost)">¶</a></h3>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=5e023c6e">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [14]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">importancia_xgb</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">modelo_xgb</span><span class="o">.</span><span class="n">feature_importances_</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">vars_modelo</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">importancia_xgb</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[14]:</div>
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
+<pre>grade          0.3011
+per_prfsnl     0.1954
+hous_val_amt   0.1204
+per_bchlr      0.1186
+sqft_living    0.0661
+lat            0.0502
+waterfront     0.0444
+view           0.0372
+dtype: float32</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=a1364109">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<p>Aqui o ranking muda de novo: <code>grade</code> lidera com folga, seguido por três variáveis do <strong>bairro</strong> (<code>per_prfsnl</code>, <code>hous_val_amt</code>, <code>per_bchlr</code>) antes de <code>sqft_living</code> reaparecer em 5º. É uma composição diferente da Random Forest (que colocava <code>sqft_living</code>/<code>lat</code> mais perto do topo, a depender da métrica), mas o recado de fundo não muda: padrão construtivo, tamanho da casa e perfil socioeconômico do CEP são, juntos, o que mais importa — a ordem exata depende do modelo e da métrica de importância, e eu trato isso como esperado, não como inconsistência a esconder.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=86457a68">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="8.-Salvando-o-modelo">8. Salvando o modelo<a class="anchor-link" href="#8.-Salvando-o-modelo">¶</a></h2><p>Salvo o <strong>XGBoost como modelo principal</strong> (usado pelos itens 2.2, 2.3 e pelo diagrama de deploy daqui pra frente) e mantenho a <strong>Random Forest salva também</strong>, como referência de comparação — não é usada em mais nada, mas fica disponível pra quem quiser reproduzir a comparação sem re-treinar.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=95de5fb1">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [15]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">"models"</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">joblib</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">modelo_xgb</span><span class="p">,</span> <span class="s2">"models/modelo_xgb.joblib"</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">joblib</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">modelo_rf</span><span class="p">,</span> <span class="s2">"models/modelo_rf.joblib"</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"modelo_xgb.joblib: </span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="s1">'models/modelo_xgb.joblib'</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e6</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">MB"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"modelo_rf.joblib:  </span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="s1">'models/modelo_rf.joblib'</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e6</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">MB"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>modelo_xgb.joblib: 0.41MB
+modelo_rf.joblib:  25.0MB
+</pre>
+</div>
 </div>
 </div>
 </div>

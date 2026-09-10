@@ -15,3 +15,6 @@ Desafio Técnico - GenAI.zip
 # OS
 .DS_Store
 Thumbs.db
+
+# Configuração/sessão de ferramenta local de desenvolvimento — não é conteúdo do projeto
+.claude/

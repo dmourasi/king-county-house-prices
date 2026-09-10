@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estratégia de Deploy — Diagrama de Arquitetura</title>
+<style>
+:root{
+  --paper:#eef1f4; --card:#f8f9fb; --card-2:#e9edf1;
+  --ink:#10161d; --ink-2:#414c58; --muted:#717e8a;
+  --rule:#d7dee4; --grid:#e4e9ed;
+  --accent:#1f6fd4; --ok:#0f8a6a; --alert:#c8352b;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua","Hoefler Text",Georgia,serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono",Consolas,"DejaVu Sans Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#0b1116; --card:#141b21; --card-2:#1b232a;
+    --ink:#e9eef2; --ink-2:#a7b3bc; --muted:#7c8891;
+    --rule:#252f37; --grid:#1d262d;
+    --accent:#4d90ee; --ok:#19a684; --alert:#e2564a;
+  }
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);line-height:1.6;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1100px;margin:0 auto;padding:0 clamp(1rem,4vw,3rem) 6rem;}
+header{padding:4rem 0 2rem;border-bottom:1px solid var(--rule);}
+.eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 .8rem;}
+h1{font-size:clamp(1.8rem,1.2rem+2.4vw,2.7rem);line-height:1.08;margin:0 0 .8rem;font-weight:600;letter-spacing:-.02em;}
+.dek{font-size:1.08rem;color:var(--ink-2);max-width:52rem;margin:0;}
+.diagram-card{margin:2.4rem 0;background:var(--card);border:1px solid var(--rule);border-radius:4px;padding:1.4rem;}
+.diagram-card svg{display:block;width:100%;height:auto;}
+.diagram-cap{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:1rem;line-height:1.7;}
+h2{font-size:1.3rem;font-weight:600;margin:2.6rem 0 .3rem;letter-spacing:-.01em;}
+.layer{margin:1.6rem 0;padding-left:1.1rem;border-left:2px solid var(--rule);}
+.layer .n{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:.3rem;}
+.layer h3{margin:0 0 .5rem;font-size:1.05rem;font-weight:600;}
+.layer p{margin:0;color:var(--ink-2);font-size:.98rem;max-width:44rem;}
+.layer code{font-family:var(--mono);font-size:.88em;background:var(--card-2);border:1px solid var(--rule);border-radius:3px;padding:.05em .3em;color:var(--accent);}
+.callout{border-left:2px solid var(--alert);padding:.1rem 0 .1rem 1rem;color:var(--ink-2);font-size:.94em;margin:1rem 0 0;max-width:44rem;}
+.callout .lbl{font-family:var(--mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--alert);display:block;margin-bottom:.2rem;}
+footer{margin-top:3.5rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-family:var(--mono);font-size:.7rem;color:var(--muted);}
+footer a{color:var(--accent);}
+.ax{font-family:var(--mono);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Item 3 · Estratégia de Deploy</p>
+    <h1>Como este modelo iria pra produção</h1>
+    <p class="dek">Este desenho não foi implementado — é o que eu proporia para colocar o modelo (XGBoost, item 2.1, implementação Python) em produção, dimensionado para o problema real: volume de tráfego provavelmente baixo, e um modelo que já sei, pelos meus próprios testes de generalização (item 2.2), onde é mais fraco.</p>
+  </header>
+
+  <div class="diagram-card">
+    <svg viewBox="0 0 980 640" role="img" aria-label="Diagrama de arquitetura: o cliente envia os atributos do imóvel para a API, que passa pelo pipeline de features, junta os dados demográficos por CEP, chama o modelo carregado do Model Registry e retorna preço, intervalo de confiança e uma flag quando o CEP não foi visto no treino. Em paralelo, a API grava um log de previsões que alimenta o monitoramento; quando esse monitoramento detecta um gatilho de drift, ele aciona o pipeline de reentreino do item 4, que versiona um novo modelo no Registry, fechando o ciclo de volta ao modelo servido.">
+
+      <defs>
+        <marker id="arrow" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto">
+          <polygon points="0,0 9,4.5 0,9" fill="currentColor"/>
+        </marker>
+        <marker id="arrowAlert" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto">
+          <polygon points="0,0 9,4.5 0,9" fill="var(--alert)"/>
+        </marker>
+      </defs>
+
+      <!-- coluna principal: fluxo do request -->
+      <g font-family="var(--mono)" font-size="12" fill="var(--ink)">
+
+        <rect x="380" y="16" width="150" height="52" rx="3" fill="none" stroke="var(--muted)"/>
+        <text x="455" y="47" text-anchor="middle" font-weight="600">Cliente</text>
+
+        <line x1="455" y1="68" x2="455" y2="104" stroke="var(--ink-2)" marker-end="url(#arrow)"/>
+        <text x="470" y="90" font-size="10.5" fill="var(--muted)">atributos do imóvel</text>
+
+        <rect x="335" y="106" width="240" height="58" rx="3" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+        <text x="455" y="130" text-anchor="middle" font-weight="700" fill="var(--accent)">API REST</text>
+        <text x="455" y="148" text-anchor="middle" font-size="10.5" fill="var(--ink-2)">POST /prever</text>
+
+        <line x1="455" y1="164" x2="455" y2="200" stroke="var(--ink-2)" marker-end="url(#arrow)"/>
+
+        <rect x="315" y="202" width="280" height="58" rx="3" fill="none" stroke="var(--muted)"/>
+        <text x="455" y="226" text-anchor="middle" font-weight="600">Feature pipeline</text>
+        <text x="455" y="244" text-anchor="middle" font-size="10" fill="var(--muted)">tem_porao · idade_casa · reformado</text>
+
+        <line x1="631" y1="231" x2="597" y2="231" stroke="var(--ink-2)" marker-end="url(#arrow)"/>
+        <rect x="633" y="203" width="220" height="56" rx="3" fill="none" stroke="var(--muted)" stroke-dasharray="2 3"/>
+        <text x="743" y="226" text-anchor="middle" font-size="11">zipcode_demographics</text>
+        <text x="743" y="243" text-anchor="middle" font-size="10" fill="var(--muted)">join por CEP</text>
+
+        <line x1="455" y1="260" x2="455" y2="296" stroke="var(--ink-2)" marker-end="url(#arrow)"/>
+
+        <rect x="325" y="298" width="260" height="60" rx="3" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+        <text x="455" y="323" text-anchor="middle" font-weight="700" fill="var(--accent)">Modelo servido</text>
+        <text x="455" y="341" text-anchor="middle" font-size="10.5" fill="var(--ink-2)">XGBoost · item 2.1</text>
+
+        <line x1="633" y1="330" x2="597" y2="330" stroke="var(--ink-2)" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+        <rect x="633" y="302" width="220" height="56" rx="3" fill="none" stroke="var(--muted)" stroke-dasharray="2 3"/>
+        <text x="743" y="325" text-anchor="middle" font-size="11">Model Registry</text>
+        <text x="743" y="342" text-anchor="middle" font-size="10" fill="var(--muted)">versão + métricas de teste</text>
+
+        <line x1="455" y1="358" x2="455" y2="394" stroke="var(--ink-2)" marker-end="url(#arrow)"/>
+
+        <polygon points="455,396 545,436 455,476 365,436" fill="none" stroke="var(--alert)" stroke-width="1.6"/>
+        <text x="455" y="432" text-anchor="middle" font-size="11" fill="var(--alert)">zipcode visto</text>
+        <text x="455" y="447" text-anchor="middle" font-size="11" fill="var(--alert)">no treino?</text>
+
+        <line x1="455" y1="476" x2="455" y2="512" stroke="var(--alert)" marker-end="url(#arrowAlert)"/>
+        <text x="470" y="500" font-size="10.5" fill="var(--alert)">não → confidence: baixa</text>
+
+        <rect x="300" y="514" width="310" height="56" rx="3" fill="none" stroke="var(--alert)" stroke-width="1.6"/>
+        <text x="455" y="538" text-anchor="middle" font-weight="700" fill="var(--alert)">preço + intervalo + flag</text>
+        <text x="455" y="555" text-anchor="middle" font-size="10" fill="var(--ink-2)">resposta da API ao cliente</text>
+
+        <!-- observabilidade: coluna esquerda -->
+        <line x1="335" y1="135" x2="205" y2="205" stroke="var(--ink-2)" marker-end="url(#arrow)"/>
+        <text x="215" y="175" font-size="10.5" fill="var(--muted)">grava cada</text>
+        <text x="215" y="188" font-size="10.5" fill="var(--muted)">chamada</text>
+
+        <rect x="40" y="204" width="190" height="56" rx="3" fill="none" stroke="var(--muted)" stroke-dasharray="2 3"/>
+        <text x="135" y="227" text-anchor="middle" font-weight="600">Log de previsões</text>
+        <text x="135" y="244" text-anchor="middle" font-size="10" fill="var(--muted)">input + output + timestamp</text>
+
+        <line x1="135" y1="260" x2="135" y2="296" stroke="var(--ink-2)" marker-end="url(#arrow)"/>
+
+        <rect x="20" y="298" width="230" height="60" rx="3" fill="none" stroke="var(--muted)"/>
+        <text x="135" y="320" text-anchor="middle" font-weight="600">Monitoramento</text>
+        <text x="135" y="336" text-anchor="middle" font-size="9.5" fill="var(--muted)">% previsões em CEP novo</text>
+        <text x="135" y="349" text-anchor="middle" font-size="9.5" fill="var(--muted)">erro real vs. IC do bootstrap</text>
+
+        <line x1="135" y1="358" x2="135" y2="394" stroke="var(--ink-2)" marker-end="url(#arrow)"/>
+        <text x="150" y="380" font-size="10.5" fill="var(--muted)">gatilho de drift</text>
+
+        <rect x="20" y="396" width="230" height="56" rx="3" fill="none" stroke="var(--ok)" stroke-width="1.6"/>
+        <text x="135" y="419" text-anchor="middle" font-weight="700" fill="var(--ok)">Pipeline de reentreino</text>
+        <text x="135" y="436" text-anchor="middle" font-size="10" fill="var(--ink-2)">item 4 · aprendizado contínuo</text>
+
+        <path d="M 250 424 C 480 424, 550 380, 633 328" fill="none" stroke="var(--ok)" marker-end="url(#arrow)"/>
+        <text x="430" y="410" font-size="10.5" fill="var(--ok)">modelo novo versionado</text>
+
+      </g>
+    </svg>
+    <p class="diagram-cap">Fluxo principal ao centro (cliente → API → feature pipeline → modelo → flag de confiança → resposta); observabilidade e reentreino à esquerda, fechando o ciclo de volta ao Model Registry.</p>
+  </div>
+
+  <h2>As camadas, e por que decidi cada uma assim</h2>
+
+  <div class="layer">
+    <span class="n">1 · Feature pipeline</span>
+    <h3>A parte que mais me preocupa</h3>
+    <p>O maior risco de bug em produção não é o modelo em si, é a lógica de feature engineering (<code>tem_porao</code>, <code>idade_casa</code>, <code>reformado</code>) ser reescrita de um jeito ligeiramente diferente no serviço de produção do que no notebook de treino (<em>training-serving skew</em>). Por isso encapsularia essa lógica numa única função/pacote compartilhado entre os dois lados, em vez de reimplementada duas vezes.</p>
+  </div>
+
+  <div class="layer">
+    <span class="n">2 · API</span>
+    <h3>A flag não é genérica</h3>
+    <p>Além do preço (revertido de <code>log_price</code> para dólar) e do intervalo de confiança (mesma lógica de bootstrap do item 2.2), a API devolve uma <strong>flag de confiança baixa</strong> quando o <code>zipcode</code> do imóvel não estiver entre os vistos no treino — tradução direta do achado mais importante da generalização: o modelo erra cerca de 20% mais em CEPs novos.</p>
+  </div>
+
+  <div class="layer">
+    <span class="n">3 · Infraestrutura</span>
+    <h3>Proporcional ao problema, não ao que impressiona</h3>
+    <p>Container com o modelo carregado do Model Registry na inicialização, atrás de um serviço gerenciado simples (Cloud Run / ECS Fargate) com autoscaling básico. Não vejo justificativa para Kubernetes aqui — o volume (~21 mil imóveis históricos, uma predição por vez) não pede essa complexidade operacional. O modelo XGBoost salvo tem ~0,4MB (contra ~25MB de uma Random Forest equivalente) — cold start do container praticamente não é afetado pelo carregamento do modelo.</p>
+  </div>
+
+  <div class="layer">
+    <span class="n">4 · Versionamento de modelo</span>
+    <h3>Rollback imediato, não reconstrução</h3>
+    <p>Cada modelo é salvo com um identificador (data + hash do pipeline de treino + métricas das três estratégias de validação do item 2.2). O "modelo em produção" é um ponteiro/alias no registro — trocar de modelo é trocar o alias.</p>
+  </div>
+
+  <div class="layer">
+    <span class="n">5 · Monitoramento</span>
+    <h3>Métricas que eu já sei que importam</h3>
+    <p>% de previsões em CEPs fora do treino, distribuição das previsões vs. treino, e erro real vs. previsto assim que a venda é confirmada — comparado contra o intervalo de confiança já calculado, não um limiar arbitrário.</p>
+  </div>
+
+  <p class="callout"><span class="lbl">Sobre a versão R</span>O projeto também tem uma implementação alternativa em R (Random Forest, `analysis/02-1_modelagem.qmd`) — mesma arquitetura proposta aqui, trocando FastAPI/joblib por plumber/`.rds`. Diferenças específicas em <code>python/03_estrategia_deploy.md</code>.</p>
+
+  <footer>
+    Estratégia de Deploy · King County House Prices · <a href="https://github.com/dmourasi/king-county-house-prices">repositório no GitHub</a>
+  </footer>
+</div>
+</body>
+</html>

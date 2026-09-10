@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Previsão de Preços — Resumo para Negócio</title>
+</head>
+<body>
+<title>Previsão de Preços — Resumo para Negócio</title>
+
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+:root {
+  color-scheme: light;
+  --paper: #eef1f4; --card: #f8f9fb; --card-2: #e9edf1;
+  --ink: #10161d; --ink-2: #414c58; --muted: #717e8a;
+  --rule: #d7dee4; --grid: #e4e9ed;
+  --accent: #1f6fd4; --ok: #0f8a6a; --alert: #c8352b;
+  --sq-1: #dbe7f6; --sq-2: #a9c6ec; --sq-3: #6f9fdd; --sq-4: #3b78c8;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "Hoefler Text", Georgia, serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Consolas, "DejaVu Sans Mono", monospace;
+  --step: clamp(0.92rem, 0.3rem + 1.4vw, 1.08rem);
+  --measure: 30rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root { color-scheme: dark;
+    --paper: #0b1116; --card: #141b21; --card-2: #1b232a;
+    --ink: #e9eef2; --ink-2: #a7b3bc; --muted: #7c8891;
+    --rule: #252f37; --grid: #1d262d;
+    --accent: #4d90ee; --ok: #19a684; --alert: #e2564a;
+    --sq-1: #16283c; --sq-2: #244a72; --sq-3: #3a72ab; --sq-4: #5f9bd6;
+  }
+}
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: var(--step); line-height: 1.62; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1500px; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 3.5rem); }
+
+.rail { position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 40; background: color-mix(in srgb, var(--rule) 60%, transparent); }
+.rail > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .12s linear; }
+
+.hero { min-height: 92svh; display: flex; flex-direction: column; justify-content: center; padding: 6vh 0 4vh; gap: clamp(1.2rem, 3vh, 2.2rem); }
+.eyebrow { font-family: var(--mono); font-size: .68rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin: 0 0 1.1rem; }
+h1 { font-size: clamp(2.2rem, 1.2rem + 4.8vw, 4.2rem); line-height: .98; margin: 0 0 1rem; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; max-width: 22ch; }
+h1 em { font-style: italic; color: var(--accent); }
+.dek { font-size: clamp(1.05rem, .9rem + .5vw, 1.28rem); color: var(--ink-2); max-width: 40rem; margin: 0; }
+.hero-stats { display: flex; flex-wrap: wrap; gap: 1px; background: var(--rule); border: 1px solid var(--rule); max-width: 40rem; margin-top: .6rem; }
+.hero-stats div { background: var(--card); padding: .9rem 1.2rem; flex: 1; min-width: 9rem; }
+.hero-stats .v { font-family: var(--serif); font-weight: 600; font-size: 1.5rem; color: var(--accent); }
+.hero-stats .l { font-family: var(--mono); font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: .15rem; }
+.scroll-cue { font-family: var(--mono); font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: .6rem; margin-top: .6rem; }
+.scroll-cue::after { content: ""; width: 2.4rem; height: 1px; background: var(--rule); }
+
+.scrolly { display: grid; grid-template-columns: minmax(0, 27rem) minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 4.5rem); align-items: start; }
+.steps { grid-column: 1; grid-row: 1; padding: 12vh 0 30vh; }
+.pane  { grid-column: 2; grid-row: 1; }
+.step { min-height: 92vh; display: flex; align-items: center; }
+.step:first-child { min-height: 66vh; }
+.step-inner { max-width: var(--measure); padding: 1.6rem 0; opacity: .34; transform: translateY(6px); transition: opacity .45s ease, transform .45s ease; }
+.step.is-active .step-inner { opacity: 1; transform: none; }
+.step h2 { font-size: clamp(1.35rem, 1.1rem + .8vw, 1.9rem); line-height: 1.18; margin: .2rem 0 .9rem; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+.step p { margin: 0 0 1rem; }
+.step p:last-child { margin-bottom: 0; }
+.marker { font-family: var(--mono); font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+code, .num { font-family: var(--mono); font-size: .92em; font-variant-numeric: tabular-nums; }
+.callout { border-left: 2px solid var(--alert); padding: .1rem 0 .1rem 1rem; color: var(--ink-2); font-size: .94em; margin: 1.2rem 0 0; }
+.callout.ok { border-left-color: var(--ok); }
+.callout .lbl { font-family: var(--mono); font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: var(--alert); display: block; margin-bottom: .2rem; }
+.callout.ok .lbl { color: var(--ok); }
+
+.pane { position: sticky; top: 0; height: 100svh; display: flex; align-items: center; padding: clamp(1rem, 3vh, 2.5rem) 0; }
+figure.card { margin: 0; width: 100%; height: 100%; background: var(--card); border: 1px solid var(--rule); border-radius: 2px; display: flex; flex-direction: column; overflow: hidden; }
+.card-head { padding: 1rem 1.2rem .7rem; border-bottom: 1px solid var(--rule); }
+.card-head .kicker { font-family: var(--mono); font-size: .64rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.card-head h3 { margin: .25rem 0 .15rem; font-size: 1.02rem; font-weight: 600; letter-spacing: -.005em; }
+.card-head p { margin: 0; font-size: .84rem; color: var(--ink-2); line-height: 1.5; }
+.plot-box { position: relative; flex: 1; min-height: 0; padding: .5rem .8rem 0; display: flex; align-items: center; justify-content: center; }
+.plot-box svg { display: block; width: 100%; height: 100%; }
+.card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .55rem 1.2rem .8rem; border-top: 1px solid var(--rule); font-family: var(--mono); font-size: .66rem; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: .35rem .9rem; align-items: center; }
+.key { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; }
+.key i { width: .62rem; height: .62rem; border-radius: 1px; flex: none; }
+
+.bigstat { text-align: left; width:100%; }
+.bigstat .v { font-family: var(--serif); font-weight: 700; font-size: clamp(3rem, 6vw, 4.4rem); color: var(--accent); line-height: .95; }
+.bigstat .l { font-family: var(--mono); font-size: .82rem; color: var(--ink-2); margin-top: .8rem; max-width: 26rem; }
+.bigstat .sub { font-family: var(--mono); font-size: .72rem; color: var(--muted); margin-top: .5rem; }
+
+.spec { display: flex; flex-direction: column; gap: 0; width: 100%; }
+.spec-row { display: flex; justify-content: space-between; align-items: baseline; padding: .8rem 0; border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: .84rem; }
+.spec-row:last-child { border-bottom: none; }
+.spec-row .k { color: var(--muted); max-width: 60%; }
+.spec-row .v { color: var(--ink); font-weight: 600; font-size: 1rem; text-align: right; }
+
+.lbl { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-2); }
+.lbl-strong { font-family: var(--mono); font-size: 11px; fill: var(--ink); font-weight: 600; }
+.lbl-title { font-family: var(--mono); font-size: 10px; fill: var(--muted); letter-spacing: .04em; }
+.gridline { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+
+.outro { padding: 12vh 0 12vh; border-top: 1px solid var(--rule); margin-top: 4vh; }
+.outro h2 { font-size: clamp(1.6rem, 1.2rem + 2vw, 2.4rem); line-height: 1.08; margin: 0 0 1.2rem; font-weight: 600; letter-spacing: -.02em; max-width: 26ch; text-wrap: balance; }
+.outro p.lede { font-size: clamp(1.02rem, .95rem + .3vw, 1.15rem); color: var(--ink-2); max-width: 42rem; }
+.colophon { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--rule); font-family: var(--mono); font-size: .68rem; color: var(--muted); line-height: 1.9; }
+.colophon a { color: var(--accent); }
+
+@media (max-width: 1000px) {
+  .scrolly { display: block; }
+  .pane { position: sticky; top: 0; height: 46svh; padding: .5rem 0 .6rem; z-index: 20; background: var(--paper); }
+  figure.card { box-shadow: 0 12px 22px -20px rgba(0,0,0,.5); }
+  .steps { padding: 1rem 0 22vh; }
+  .step { min-height: 70vh; }
+  .step-inner { background: var(--card); border: 1px solid var(--rule); border-radius: 2px; padding: 1.1rem 1.2rem; opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition-duration: .001ms !important; } }
+</style>
+
+<div class="rail" aria-hidden="true"><i id="railFill"></i></div>
+
+<main class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Item 5 · Comunicação com stakeholders</p>
+    <h1>O que o modelo <em>entrega</em>, em linguagem de negócio</h1>
+    <p class="dek">Sem escala log, sem RMSE — só o que muda a decisão de quem vai usar a previsão no dia a dia.</p>
+    <div class="hero-stats">
+      <div><div class="v">14,2%</div><div class="l">erro típico</div></div>
+      <div><div class="v">US$ 63.707</div><div class="l">erro médio por imóvel</div></div>
+      <div><div class="v">US$ 26.645</div><div class="l">a menos que o modelo simples</div></div>
+    </div>
+    <p class="scroll-cue">Role para acompanhar</p>
+  </header>
+
+  <div class="scrolly">
+    <div class="pane">
+      <figure class="card">
+        <div class="card-head">
+          <p class="kicker" id="figKicker">Figura</p>
+          <h3 id="figTitle">—</h3>
+          <p id="figSub">—</p>
+        </div>
+        <div class="plot-box" id="plotBox">
+          <svg id="viz" viewBox="0 0 640 420" role="img" aria-labelledby="figTitle"></svg>
+        </div>
+        <figcaption class="card-foot">
+          <span class="legend" id="figLegend"></span>
+        </figcaption>
+      </figure>
+    </div>
+
+    <div class="steps" id="steps">
+
+      <section class="step" data-step="oque">
+        <div class="step-inner">
+          <p class="marker">01 · O que isto é</p>
+          <h2>Um número inicial, calculado a partir do que a casa é e de onde ela fica</h2>
+          <p>Construímos um modelo que estima o preço de um imóvel em King County a partir das características físicas (tamanho, quartos, padrão construtivo) e da localização — sem depender de uma vistoria.</p>
+          <p>Ele aprendeu com <b>21.612 vendas reais</b> da região.</p>
+        </div>
+      </section>
+
+      <section class="step" data-step="erro">
+        <div class="step-inner">
+          <p class="marker">02 · Quanto ele acerta</p>
+          <h2>Para um imóvel de valor mediano, o erro fica abaixo de US$ 67 mil</h2>
+          <p>Em palavras simples: para um imóvel de valor mediano na região (US$ 450.000), a estimativa costuma ficar a menos de <b>US$ 63.707</b> do preço real de venda — <b>14,2%</b>.</p>
+          <p class="callout ok"><span class="lbl">Por que este modelo</span>Testamos quatro abordagens diferentes, da mais simples à mais sofisticada. A que usamos erra, em média, <b>US$ 26.645 a menos por imóvel</b> que a versão mais simples — a diferença vem principalmente de como a localização afeta o preço, que não segue uma linha reta, e se manteve mesmo quando testamos especificamente em bairros que o modelo nunca tinha visto.</p>
+        </div>
+      </section>
+
+      <section class="step" data-step="fatores">
+        <div class="step-inner">
+          <p class="marker">03 · O que mais pesa no preço</p>
+          <h2>Padrão construtivo lidera, e o bairro pesa mais do que parece</h2>
+          <p>Cada ponto a mais na escala de padrão de acabamento está associado a cerca de <b>11,2% a mais</b> no preço, em média, mantendo o resto constante. Cada 100 pés² a mais de área construída, <b>1,7% a mais</b>.</p>
+          <p>Um ponto que vale destacar: três dos quatro fatores mais fortes <b>não são a casa em si, são o bairro</b> — % de moradores com ocupação de nível superior, valor médio dos imóveis na região e % com diploma universitário pesam mais no modelo do que o próprio tamanho da casa.</p>
+        </div>
+      </section>
+
+      <section class="step" data-step="risco">
+        <div class="step-inner">
+          <p class="marker">04 · Onde eu confiaria menos</p>
+          <h2>Bairro sem histórico, e imóveis de altíssimo padrão</h2>
+          <p>Quando testamos o modelo especificamente em bairros que ele nunca tinha visto, o erro subiu cerca de <b>20%</b> em relação ao caso normal — bem mais do que a degradação natural de testar em vendas mais recentes (13%).</p>
+          <p class="callout"><span class="lbl">Segunda ressalva</span>O modelo tende a <b>subestimar</b> os imóveis mais caros da base (mansões, propriedades excepcionais). Para esse segmento, trate o número como piso, não como estimativa central.</p>
+        </div>
+      </section>
+
+      <section class="step" data-step="uso">
+        <div class="step-inner">
+          <p class="marker">05 · Como eu usaria isto</p>
+          <h2>Ponto de partida, não veredito final</h2>
+          <p>Como <b>triagem</b> — sinalizar imóveis com preço pedido muito fora da estimativa, para revisão prioritária. Como <b>ponto de partida de negociação</b>, não como laudo de avaliação.</p>
+          <p><b>Não</b> em bairros novos ou para imóveis de padrão excepcional sem revisão humana — é exatamente aí que o modelo erra mais, e agora sabemos disso com número, não por suposição.</p>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <section class="outro">
+    <h2>Em uma frase</h2>
+    <p class="lede">O modelo acerta dentro de 15% do preço na maior parte dos casos, é melhor que uma estimativa simples por uma margem real, e — o mais importante para quem vai usar isso — <b>já sabemos exatamente onde ele erra mais</b>: bairros sem histórico de vendas e imóveis de padrão excepcional.</p>
+    <p class="colophon">Detalhamento técnico completo — variáveis, testes estatísticos, escolha e validação do modelo — em <a href="../analysis/01_eda.html">analysis/01_eda.html</a> (item 1, EDA em R) e <a href="../python/02-1_modelagem.html">python/02-1_modelagem.html</a> + <a href="../python/02-2_generalizacao.html">02-2_generalizacao.html</a> (item 2, modelo de referência XGBoost). Todos os números desta página são calculados, com o código à mostra, em <a href="../python/05_comunicacao_stakeholders_calculos.html">python/05_comunicacao_stakeholders_calculos.html</a> — há também uma versão equivalente rodando sobre a Random Forest da implementação alternativa em R, <a href="../analysis/05_comunicacao_stakeholders_calculos.html">analysis/05_comunicacao_stakeholders_calculos.html</a>, com números ligeiramente diferentes por usar outro modelo.</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  const NS = "http://www.w3.org/2000/svg";
+  const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  function E(tag, attrs, parent) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) if (attrs[k] !== null && attrs[k] !== undefined) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function txt(parent, x, y, s, cls, extra) {
+    const t = E("text", Object.assign({ x, y, class: cls || "lbl" }, extra || {}), parent);
+    t.textContent = s;
+    return t;
+  }
+  function scaleLin(d0, d1, r0, r1) { return (v) => r0 + (v - d0) * (r1 - r0) / (d1 - d0 || 1); }
+  function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+
+  function barrasH(svg, W, H, dados, opts) {
+    opts = opts || {};
+    const ml = opts.ml || 160, mr = 40, mt = 26, mb = 34;
+    const w = W - ml - mr, h = H - mt - mb;
+    const max = opts.max !== undefined ? opts.max : Math.max(...dados.map(d => d.v)) * 1.12;
+    const x = scaleLin(0, max, 0, w);
+    const bh = Math.min(46, h / dados.length - 16);
+    const step = h / dados.length;
+    const nticks = opts.nticks || 5;
+    for (let i = 0; i <= nticks; i++) {
+      const v = max * i / nticks;
+      const gx = ml + x(v);
+      E("line", { x1: gx, x2: gx, y1: mt, y2: mt + h, class: "gridline" }, svg);
+      txt(svg, gx, mt + h + 18, opts.fmt ? opts.fmt(v) : v.toFixed(2), "lbl-title", { "text-anchor": "middle" });
+    }
+    dados.forEach((d, i) => {
+      const y = mt + step * i + (step - bh) / 2;
+      txt(svg, ml - 12, y + bh / 2 + 4, d.label, "lbl", { "text-anchor": "end" });
+      E("rect", { x: ml, y, width: REDUCED ? x(d.v) : 0, height: bh, fill: d.color || css("--accent"), rx: 1 }, svg);
+      const r = svg.lastChild;
+      if (!REDUCED) requestAnimationFrame(() => { r.style.transition = "width .7s cubic-bezier(.2,.7,.2,1)"; r.setAttribute("width", x(d.v)); });
+      txt(svg, ml + x(d.v) + 10, y + bh / 2 + 4, d.vlabel || d.v, "lbl-strong");
+    });
+    E("line", { x1: ml, x2: ml, y1: mt, y2: mt + h, stroke: css("--rule") }, svg);
+  }
+
+  function bigStat(container, v, l, sub) {
+    const box = document.createElement("div");
+    box.className = "bigstat";
+    box.innerHTML = `<div class="v">${v}</div><div class="l">${l}</div>` + (sub ? `<div class="sub">${sub}</div>` : "");
+    container.appendChild(box);
+  }
+
+  function specList(container, linhas) {
+    const box = document.createElement("div");
+    box.className = "spec";
+    linhas.forEach(l => {
+      const row = document.createElement("div");
+      row.className = "spec-row";
+      row.innerHTML = `<span class="k">${l.k}</span><span class="v">${l.v}</span>`;
+      box.appendChild(row);
+    });
+    container.appendChild(box);
+  }
+
+  const FIGS = {
+    oque: {
+      kicker: "O modelo", title: "Composição da base de aprendizado", sub: "O que ele viu antes de estimar qualquer preço",
+      card: (c) => specList(c, [
+        {k:"Vendas usadas para aprender", v:"21.612"},
+        {k:"Região", v:"King County, Seattle"},
+        {k:"Características usadas", v:"físicas + bairro"},
+      ]), legend: []
+    },
+    erro: {
+      kicker: "Precisão", title: "Erro médio por imóvel (US$)", sub: "Modelo escolhido vs. alternativa mais simples",
+      draw: (svg,W,H) => barrasH(svg, W, H, [
+        {label:"Modelo simples", v:90352, vlabel:"US$ 90.352", color:css("--muted")},
+        {label:"Modelo escolhido", v:63707, vlabel:"US$ 63.707", color:css("--accent")},
+      ], {max:100000, fmt:v=>"US$ "+Math.round(v/1000)+"k"}),
+      legend: [["--accent","modelo escolhido"]]
+    },
+    fatores: {
+      kicker: "O que pesa no preço", title: "Os 6 fatores mais fortes", sub: "Força relativa de cada um na previsão do modelo",
+      draw: (svg,W,H) => barrasH(svg, W, H, [
+        {label:"Padrão de acabamento", v:301, vlabel:"1º", color:css("--accent")},
+        {label:"% ocupação de nível superior no bairro", v:195, vlabel:"2º", color:css("--sq-4")},
+        {label:"Valor médio dos imóveis no bairro", v:120, vlabel:"3º", color:css("--sq-4")},
+        {label:"% diploma universitário no bairro", v:119, vlabel:"4º", color:css("--sq-4")},
+        {label:"Tamanho da casa", v:66, vlabel:"5º", color:css("--accent")},
+        {label:"Localização (norte–sul)", v:50, vlabel:"6º", color:css("--sq-3")},
+      ], {max:320, ml:220, fmt:()=>""}),
+      legend: [["--accent","característica da casa"], ["--sq-4","perfil do bairro"]]
+    },
+    risco: {
+      kicker: "Onde confiar menos", title: "Aumento no erro, por cenário", sub: "Em relação ao caso normal",
+      draw: (svg,W,H) => barrasH(svg, W, H, [
+        {label:"Venda mais recente", v:13, vlabel:"+13%", color:css("--sq-3")},
+        {label:"Bairro sem histórico", v:20, vlabel:"+20%", color:css("--alert")},
+      ], {max:24, fmt:v=>"+"+v.toFixed(0)+"%"}),
+      legend: [["--alert","maior risco real"]]
+    },
+    uso: {
+      kicker: "Recomendação", title: "Como usar a previsão", sub: "Resumo prático",
+      card: (c) => specList(c, [
+        {k:"Triagem em massa", v:"sim"},
+        {k:"Ponto de partida de negociação", v:"sim"},
+        {k:"Laudo de avaliação final", v:"não"},
+        {k:"Bairro sem histórico / alto padrão", v:"revisão humana"},
+      ]), legend: []
+    },
+  };
+
+  const figTitle = document.getElementById("figTitle");
+  const figSub = document.getElementById("figSub");
+  const figKicker = document.getElementById("figKicker");
+  const figLegend = document.getElementById("figLegend");
+  const plotBox = document.getElementById("plotBox");
+  const svg = document.getElementById("viz");
+
+  function desenhar(id) {
+    const f = FIGS[id];
+    if (!f) return;
+    figKicker.textContent = f.kicker;
+    figTitle.textContent = f.title;
+    figSub.textContent = f.sub;
+    figLegend.innerHTML = "";
+    (f.legend || []).forEach(([varName, label]) => {
+      const span = document.createElement("span");
+      span.className = "key";
+      span.innerHTML = `<i style="background:${css(varName)}"></i>${label}`;
+      figLegend.appendChild(span);
+    });
+    plotBox.querySelectorAll(".spec,.bigstat").forEach(n => n.remove());
+    if (f.card) {
+      clear(svg); svg.style.display = "none";
+      f.card(plotBox);
+    } else {
+      svg.style.display = "block"; clear(svg);
+      f.draw(svg, 640, 420);
+    }
+  }
+
+  desenhar("oque");
+
+  const steps = Array.from(document.querySelectorAll(".step"));
+  const railFill = document.getElementById("railFill");
+
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver((entradas) => {
+      entradas.forEach((en) => {
+        en.target.classList.toggle("is-active", en.isIntersecting);
+        if (en.isIntersecting) desenhar(en.target.dataset.step);
+      });
+    }, { rootMargin: "-40% 0px -40% 0px", threshold: 0 });
+    steps.forEach((s) => io.observe(s));
+  } else {
+    steps[0].classList.add("is-active");
+  }
+
+  addEventListener("scroll", () => {
+    const h = document.documentElement;
+    const p = (h.scrollTop) / (h.scrollHeight - h.clientHeight || 1);
+    railFill.style.width = Math.min(100, Math.max(0, p * 100)) + "%";
+  }, { passive: true });
+})();
+</script>
+</body>
+</html>

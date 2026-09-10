@@ -3089,16 +3089,22 @@ vertical-align: -.125em;
   <li><a href="#modelo-baseline-regressão-linear" id="toc-modelo-baseline-regressão-linear" class="nav-link" data-scroll-target="#modelo-baseline-regressão-linear">3. Modelo baseline: Regressão Linear</a>
   <ul class="collapse">
   <li><a href="#regularização-ridge" id="toc-regularização-ridge" class="nav-link" data-scroll-target="#regularização-ridge">Regularização (Ridge)</a></li>
+  <li><a href="#regularização-lasso" id="toc-regularização-lasso" class="nav-link" data-scroll-target="#regularização-lasso">Regularização (Lasso)</a></li>
   </ul></li>
   <li><a href="#modelo-principal-random-forest" id="toc-modelo-principal-random-forest" class="nav-link" data-scroll-target="#modelo-principal-random-forest">4. Modelo principal: Random Forest</a>
   <ul class="collapse">
   <li><a href="#treino-vs.-teste-cuidado-com-uma-pegadinha-da-random-forest" id="toc-treino-vs.-teste-cuidado-com-uma-pegadinha-da-random-forest" class="nav-link" data-scroll-target="#treino-vs.-teste-cuidado-com-uma-pegadinha-da-random-forest">Treino vs. teste — cuidado com uma pegadinha da Random Forest</a></li>
   </ul></li>
-  <li><a href="#comparação-final-e-escolha-do-modelo" id="toc-comparação-final-e-escolha-do-modelo" class="nav-link" data-scroll-target="#comparação-final-e-escolha-do-modelo">5. Comparação final e escolha do modelo</a></li>
-  <li><a href="#importância-das-variáveis" id="toc-importância-das-variáveis" class="nav-link" data-scroll-target="#importância-das-variáveis">6. Importância das variáveis</a></li>
-  <li><a href="#diagnóstico-dos-resíduos-modelo-final" id="toc-diagnóstico-dos-resíduos-modelo-final" class="nav-link" data-scroll-target="#diagnóstico-dos-resíduos-modelo-final">7. Diagnóstico dos resíduos (modelo final)</a></li>
-  <li><a href="#generalização-o-que-me-dá-confiança-de-que-isso-não-é-sorte-de-um-único-split" id="toc-generalização-o-que-me-dá-confiança-de-que-isso-não-é-sorte-de-um-único-split" class="nav-link" data-scroll-target="#generalização-o-que-me-dá-confiança-de-que-isso-não-é-sorte-de-um-único-split">8. Generalização — o que me dá confiança de que isso não é sorte de um único split</a></li>
-  <li><a href="#persistindo-o-modelo-final" id="toc-persistindo-o-modelo-final" class="nav-link" data-scroll-target="#persistindo-o-modelo-final">9. Persistindo o modelo final</a></li>
+  <li><a href="#outros-modelos-testados-gradient-boosting-e-knn" id="toc-outros-modelos-testados-gradient-boosting-e-knn" class="nav-link" data-scroll-target="#outros-modelos-testados-gradient-boosting-e-knn">5. Outros modelos testados: Gradient Boosting e KNN</a>
+  <ul class="collapse">
+  <li><a href="#gradient-boosting-xgboost" id="toc-gradient-boosting-xgboost" class="nav-link" data-scroll-target="#gradient-boosting-xgboost">Gradient Boosting (XGBoost)</a></li>
+  <li><a href="#k-nearest-neighbors-knn" id="toc-k-nearest-neighbors-knn" class="nav-link" data-scroll-target="#k-nearest-neighbors-knn">K-Nearest Neighbors (KNN)</a></li>
+  </ul></li>
+  <li><a href="#comparação-final-e-escolha-do-modelo" id="toc-comparação-final-e-escolha-do-modelo" class="nav-link" data-scroll-target="#comparação-final-e-escolha-do-modelo">6. Comparação final e escolha do modelo</a></li>
+  <li><a href="#importância-das-variáveis" id="toc-importância-das-variáveis" class="nav-link" data-scroll-target="#importância-das-variáveis">7. Importância das variáveis</a></li>
+  <li><a href="#diagnóstico-dos-resíduos-modelo-final" id="toc-diagnóstico-dos-resíduos-modelo-final" class="nav-link" data-scroll-target="#diagnóstico-dos-resíduos-modelo-final">8. Diagnóstico dos resíduos (modelo final)</a></li>
+  <li><a href="#generalização-o-que-me-dá-confiança-de-que-isso-não-é-sorte-de-um-único-split" id="toc-generalização-o-que-me-dá-confiança-de-que-isso-não-é-sorte-de-um-único-split" class="nav-link" data-scroll-target="#generalização-o-que-me-dá-confiança-de-que-isso-não-é-sorte-de-um-único-split">9. Generalização — o que me dá confiança de que isso não é sorte de um único split</a></li>
+  <li><a href="#persistindo-o-modelo-final" id="toc-persistindo-o-modelo-final" class="nav-link" data-scroll-target="#persistindo-o-modelo-final">10. Persistindo o modelo final</a></li>
   </ul>
 </nav>
 </div>
@@ -3133,10 +3139,11 @@ vertical-align: -.125em;
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(randomForest)</span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(caret)</span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(glmnet)</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">theme_set</span>(<span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">11</span>))</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(xgboost)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">theme_set</span>(<span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">11</span>))</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <p>Este notebook (item 2.1) parte direto das conclusões do item 1 — EDA (<code>01_eda.qmd</code>): uso <code>log(price)</code> como alvo, removo o registro de 33 quartos (erro de digitação), substituo <code>sqft_above</code>/<code>sqft_basement</code> por uma flag <code>tem_porao</code> (por causa da colinearidade perfeita já identificada), e junto os dados demográficos por CEP.</p>
@@ -3307,25 +3314,57 @@ F-statistic:  4568 on 21 and 17269 DF,  p-value: &lt; 2.2e-16</code></pre>
 </div>
 <p>Testei Ridge para ver se a regularização traria ganho, já que regressão linear sofre quando há colinearidade entre preditores. O resultado no teste fica praticamente igual ao da regressão linear sem regularização — o que é consistente com o que já vi na fase de EDA: depois de remover <code>sqft_above</code>/<code>sqft_basement</code>, os VIFs ficaram baixos (a colinearidade severa já tinha sido resolvida antes de chegar aqui). Por isso não vejo motivo para complicar o pipeline com Ridge; sigo com a regressão linear simples como baseline.</p>
 </section>
+<section id="regularização-lasso" class="level3">
+<h3 class="anchored" data-anchor-id="regularização-lasso">Regularização (Lasso)</h3>
+<p>Ridge encolhe todos os coeficientes, mas nenhum vira exatamente zero. Lasso (penalidade L1 em vez de L2) pode zerar coeficientes por completo — então, além de testar se ajuda a métrica, uso o Lasso também como uma checagem informal de seleção de variáveis: quais features ele decide que são dispensáveis?</p>
+<div class="cell">
+<details class="code-fold">
+<summary>mostrar código</summary>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>cv_lasso <span class="ot">&lt;-</span> <span class="fu">cv.glmnet</span>(x_treino, y_treino, <span class="at">alpha =</span> <span class="dv">1</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>pred_lasso_teste <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">predict</span>(cv_lasso, <span class="at">s =</span> <span class="st">&quot;lambda.min&quot;</span>, <span class="at">newx =</span> x_teste))</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>coef_lasso <span class="ot">&lt;-</span> <span class="fu">coef</span>(cv_lasso, <span class="at">s =</span> <span class="st">&quot;lambda.min&quot;</span>)</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>n_zerados <span class="ot">&lt;-</span> <span class="fu">sum</span>(coef_lasso <span class="sc">==</span> <span class="dv">0</span>)</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_lasso_teste)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 3
+   rmse   mae    r2
+  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+1 0.211 0.157 0.843</code></pre>
+</div>
+<details class="code-fold">
+<summary>mostrar código</summary>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">variavel =</span> <span class="fu">rownames</span>(coef_lasso), <span class="at">coeficiente =</span> <span class="fu">as.numeric</span>(coef_lasso)) <span class="sc">|&gt;</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(coeficiente <span class="sc">==</span> <span class="dv">0</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 0 × 2
+# ℹ 2 variables: variavel &lt;chr&gt;, coeficiente &lt;dbl&gt;</code></pre>
+</div>
+</div>
+<p>Assim como o Ridge, o Lasso não melhora a métrica em relação à regressão linear simples — mesma conclusão de antes, a colinearidade grave já estava resolvida. E ele zerou 0 coeficiente(s), o que reforça (mas não substitui) a própria análise de multicolinearidade da EDA: não é um sinal de que sobra muita variável redundante no conjunto que ficou.</p>
+</section>
 </section>
 <section id="modelo-principal-random-forest" class="level2">
 <h2 class="anchored" data-anchor-id="modelo-principal-random-forest">4. Modelo principal: Random Forest</h2>
 <div class="cell">
 <details class="code-fold">
 <summary>mostrar código</summary>
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>ctrl <span class="ot">&lt;-</span> <span class="fu">trainControl</span>(<span class="at">method =</span> <span class="st">&quot;cv&quot;</span>, <span class="at">number =</span> <span class="dv">5</span>)</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>grade_mtry <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="at">mtry =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">9</span>))</span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>modelo_rf <span class="ot">&lt;-</span> <span class="fu">train</span>(</span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  log_price <span class="sc">~</span> ., <span class="at">data =</span> treino,</span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">&quot;rf&quot;</span>,</span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">trControl =</span> ctrl,</span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">tuneGrid =</span> grade_mtry,</span>
-<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">ntree =</span> <span class="dv">300</span>,</span>
-<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">importance =</span> <span class="cn">TRUE</span></span>
-<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>modelo_rf</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>ctrl <span class="ot">&lt;-</span> <span class="fu">trainControl</span>(<span class="at">method =</span> <span class="st">&quot;cv&quot;</span>, <span class="at">number =</span> <span class="dv">5</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>grade_mtry <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="at">mtry =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">9</span>))</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>modelo_rf <span class="ot">&lt;-</span> <span class="fu">train</span>(</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  log_price <span class="sc">~</span> ., <span class="at">data =</span> treino,</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">&quot;rf&quot;</span>,</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">trControl =</span> ctrl,</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">tuneGrid =</span> grade_mtry,</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">ntree =</span> <span class="dv">300</span>,</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">importance =</span> <span class="cn">TRUE</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>modelo_rf</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>Random Forest 
@@ -3360,15 +3399,15 @@ The final value used for the model was mtry = 7.</code></pre>
 <div class="cell">
 <details class="code-fold">
 <summary>mostrar código</summary>
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>pred_rf_treino_ingenuo <span class="ot">&lt;-</span> <span class="fu">predict</span>(modelo_rf, treino)</span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>pred_rf_treino_oob      <span class="ot">&lt;-</span> modelo_rf<span class="sc">$</span>finalModel<span class="sc">$</span>predicted</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>pred_rf_teste           <span class="ot">&lt;-</span> <span class="fu">predict</span>(modelo_rf, teste)</span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="fu">bind_rows</span>(</span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">metricas</span>(treino<span class="sc">$</span>log_price, pred_rf_treino_ingenuo) <span class="sc">|&gt;</span> <span class="fu">mutate</span>(<span class="at">base =</span> <span class="st">&quot;treino (ingênuo — enviesado)&quot;</span>),</span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">metricas</span>(treino<span class="sc">$</span>log_price, pred_rf_treino_oob)      <span class="sc">|&gt;</span> <span class="fu">mutate</span>(<span class="at">base =</span> <span class="st">&quot;treino (out-of-bag — honesto)&quot;</span>),</span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_rf_teste)            <span class="sc">|&gt;</span> <span class="fu">mutate</span>(<span class="at">base =</span> <span class="st">&quot;teste&quot;</span>)</span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>pred_rf_treino_ingenuo <span class="ot">&lt;-</span> <span class="fu">predict</span>(modelo_rf, treino)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>pred_rf_treino_oob      <span class="ot">&lt;-</span> modelo_rf<span class="sc">$</span>finalModel<span class="sc">$</span>predicted</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>pred_rf_teste           <span class="ot">&lt;-</span> <span class="fu">predict</span>(modelo_rf, teste)</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="fu">bind_rows</span>(</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">metricas</span>(treino<span class="sc">$</span>log_price, pred_rf_treino_ingenuo) <span class="sc">|&gt;</span> <span class="fu">mutate</span>(<span class="at">base =</span> <span class="st">&quot;treino (ingênuo — enviesado)&quot;</span>),</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">metricas</span>(treino<span class="sc">$</span>log_price, pred_rf_treino_oob)      <span class="sc">|&gt;</span> <span class="fu">mutate</span>(<span class="at">base =</span> <span class="st">&quot;treino (out-of-bag — honesto)&quot;</span>),</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_rf_teste)            <span class="sc">|&gt;</span> <span class="fu">mutate</span>(<span class="at">base =</span> <span class="st">&quot;teste&quot;</span>)</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 3 × 4
@@ -3382,60 +3421,178 @@ The final value used for the model was mtry = 7.</code></pre>
 <p>Isso merece explicação: se eu simplesmente chamar <code>predict()</code> da Random Forest sobre os próprios dados de treino, cada árvore reconhece as observações que ajudou a memorizar, e o erro sai artificialmente perto de zero — não é uma medida honesta de ajuste. Por isso comparo o teste com a predição <strong>out-of-bag</strong> (a predição de cada observação de treino usando só as árvores que <em>não</em> a usaram para crescer), que é a forma correta de estimar o erro “de treino” numa Random Forest. Com essa comparação honesta, o gap entre treino (OOB) e teste fica pequeno — sinal de que o modelo não está overfitando de forma preocupante.</p>
 </section>
 </section>
-<section id="comparação-final-e-escolha-do-modelo" class="level2">
-<h2 class="anchored" data-anchor-id="comparação-final-e-escolha-do-modelo">5. Comparação final e escolha do modelo</h2>
+<section id="outros-modelos-testados-gradient-boosting-e-knn" class="level2">
+<h2 class="anchored" data-anchor-id="outros-modelos-testados-gradient-boosting-e-knn">5. Outros modelos testados: Gradient Boosting e KNN</h2>
+<p>Depois da Random Forest, testei mais dois modelos de naturezas bem diferentes entre si — um para ver se um <em>ensemble</em> mais sofisticado bate a Random Forest, outro para ter um contraponto totalmente não-paramétrico.</p>
+<section id="gradient-boosting-xgboost" class="level3">
+<h3 class="anchored" data-anchor-id="gradient-boosting-xgboost">Gradient Boosting (XGBoost)</h3>
+<p>O README já cita XGBoost como exemplo de modelo a considerar. Diferente da Random Forest (que treina árvores independentes e tira a média — <em>bagging</em>), o <em>boosting</em> treina árvores em sequência, cada uma corrigindo o erro residual da anterior.</p>
+<p>Não uso <code>caret::train(method = &quot;xgbTree&quot;)</code> aqui: a versão do pacote <code>xgboost</code> instalada (3.x) reescreveu a API em R e quebrou compatibilidade com o <em>wrapper</em> do <code>caret</code> (erro interno de <code>ALTLIST</code>/<code>XGBAltrepPointerClass</code> — bug de integração entre os dois pacotes, não do meu código). Uso a função <code>xgboost()</code> diretamente, com uma validação cruzada de 5 folds escrita à mão pra escolher <code>max_depth</code> — mesmo princípio de grid pequeno das outras seções, só sem depender do <code>caret</code> pra orquestrar.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>mostrar código</summary>
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>comparacao <span class="ot">&lt;-</span> <span class="fu">tribble</span>(</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="sc">~</span>modelo, <span class="sc">~</span>rmse, <span class="sc">~</span>mae, <span class="sc">~</span>r2,</span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;Regressão Linear&quot;</span>, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_lm_teste)<span class="sc">$</span>rmse, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_lm_teste)<span class="sc">$</span>mae, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_lm_teste)<span class="sc">$</span>r2,</span>
-<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;Ridge&quot;</span>,             <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_ridge_teste)<span class="sc">$</span>rmse, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_ridge_teste)<span class="sc">$</span>mae, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_ridge_teste)<span class="sc">$</span>r2,</span>
-<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;Random Forest&quot;</span>,     <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_rf_teste)<span class="sc">$</span>rmse, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_rf_teste)<span class="sc">$</span>mae, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_rf_teste)<span class="sc">$</span>r2</span>
-<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>comparacao</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>x_treino_xgb <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(log_price <span class="sc">~</span> ., treino)[, <span class="sc">-</span><span class="dv">1</span>]</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>y_treino_xgb <span class="ot">&lt;-</span> treino<span class="sc">$</span>log_price</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>x_teste_xgb  <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(log_price <span class="sc">~</span> ., teste)[, <span class="sc">-</span><span class="dv">1</span>]</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>grade_xgb <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">max_depth =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">6</span>))</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>avaliar_max_depth <span class="ot">&lt;-</span> <span class="cf">function</span>(profundidade) {</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>  folds <span class="ot">&lt;-</span> <span class="fu">createFolds</span>(y_treino_xgb, <span class="at">k =</span> <span class="dv">5</span>)</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>  rmses <span class="ot">&lt;-</span> <span class="fu">map_dbl</span>(folds, <span class="cf">function</span>(idx_val) {</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>    modelo <span class="ot">&lt;-</span> <span class="fu">xgboost</span>(</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>      <span class="at">x =</span> x_treino_xgb[<span class="sc">-</span>idx_val, ], <span class="at">y =</span> y_treino_xgb[<span class="sc">-</span>idx_val],</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>      <span class="at">max_depth =</span> profundidade, <span class="at">learning_rate =</span> <span class="fl">0.1</span>, <span class="at">nrounds =</span> <span class="dv">300</span>,</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>      <span class="at">objective =</span> <span class="st">&quot;reg:squarederror&quot;</span>, <span class="at">nthreads =</span> <span class="dv">1</span>, <span class="at">verbosity =</span> <span class="dv">0</span></span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>    pred <span class="ot">&lt;-</span> <span class="fu">predict</span>(modelo, x_treino_xgb[idx_val, ])</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sqrt</span>(<span class="fu">mean</span>((y_treino_xgb[idx_val] <span class="sc">-</span> pred)<span class="sc">^</span><span class="dv">2</span>))</span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mean</span>(rmses)</span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a>resultados_xgb <span class="ot">&lt;-</span> grade_xgb <span class="sc">|&gt;</span> <span class="fu">mutate</span>(<span class="at">rmse_cv =</span> <span class="fu">map_dbl</span>(max_depth, avaliar_max_depth))</span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a>resultados_xgb</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 3 × 4
-  modelo            rmse   mae    r2
-  &lt;chr&gt;            &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
-1 Regressão Linear 0.211 0.157 0.843
-2 Ridge            0.212 0.157 0.843
-3 Random Forest    0.176 0.122 0.892</code></pre>
+<pre><code># A tibble: 2 × 2
+  max_depth rmse_cv
+      &lt;dbl&gt;   &lt;dbl&gt;
+1         3   0.166
+2         6   0.164</code></pre>
 </div>
 <details class="code-fold">
 <summary>mostrar código</summary>
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>mae_dolar_lm <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(<span class="fu">exp</span>(teste<span class="sc">$</span>log_price) <span class="sc">-</span> <span class="fu">exp</span>(pred_lm_teste)))</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>mae_dolar_rf <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(<span class="fu">exp</span>(teste<span class="sc">$</span>log_price) <span class="sc">-</span> <span class="fu">exp</span>(pred_rf_teste)))</span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>mediana_preco_teste <span class="ot">&lt;-</span> <span class="fu">median</span>(<span class="fu">exp</span>(teste<span class="sc">$</span>log_price))</span>
-<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
-<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">modelo =</span> <span class="fu">c</span>(<span class="st">&quot;Regressão Linear&quot;</span>, <span class="st">&quot;Random Forest&quot;</span>),</span>
-<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">mae_dolares =</span> <span class="fu">c</span>(mae_dolar_lm, mae_dolar_rf),</span>
-<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">mae_percentual_da_mediana =</span> <span class="fu">c</span>(mae_dolar_lm, mae_dolar_rf) <span class="sc">/</span> mediana_preco_teste</span>
-<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>melhor_depth <span class="ot">&lt;-</span> resultados_xgb <span class="sc">|&gt;</span> <span class="fu">slice_min</span>(rmse_cv, <span class="at">n =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span> <span class="fu">pull</span>(max_depth)</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>modelo_xgb <span class="ot">&lt;-</span> <span class="fu">xgboost</span>(</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> x_treino_xgb, <span class="at">y =</span> y_treino_xgb,</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_depth =</span> melhor_depth, <span class="at">learning_rate =</span> <span class="fl">0.1</span>, <span class="at">nrounds =</span> <span class="dv">300</span>,</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">objective =</span> <span class="st">&quot;reg:squarederror&quot;</span>, <span class="at">nthreads =</span> <span class="dv">1</span>, <span class="at">verbosity =</span> <span class="dv">0</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>melhor_depth</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 2 × 3
+<pre><code>[1] 6</code></pre>
+</div>
+<details class="code-fold">
+<summary>mostrar código</summary>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>pred_xgb_teste <span class="ot">&lt;-</span> <span class="fu">predict</span>(modelo_xgb, x_teste_xgb)</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_xgb_teste)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 3
+   rmse   mae    r2
+  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+1 0.166 0.117 0.903</code></pre>
+</div>
+</div>
+</section>
+<section id="k-nearest-neighbors-knn" class="level3">
+<h3 class="anchored" data-anchor-id="k-nearest-neighbors-knn">K-Nearest Neighbors (KNN)</h3>
+<p>KNN prevê o preço de um imóvel pela média dos <code>k</code> imóveis mais parecidos no conjunto de treino — na prática, é a versão algorítmica de como um corretor de imóveis raciocina informalmente (“essa casa é parecida com essas três que venderam recentemente”). Uma diferença importante em relação a todos os modelos anteriores: KNN mede distância entre os pontos, então <strong>precisa das variáveis na mesma escala</strong> — sem isso, <code>sqft_lot</code> (na casa dos milhares) dominaria completamente a distância sobre <code>grade</code> (1 a 13). Uso <code>preProcess = c(&quot;center&quot;, &quot;scale&quot;)</code> para normalizar antes de calcular qualquer distância; nenhum dos modelos anteriores precisou disso.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>mostrar código</summary>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>grade_knn <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="at">k =</span> <span class="fu">c</span>(<span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">25</span>))</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>modelo_knn <span class="ot">&lt;-</span> <span class="fu">train</span>(</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  log_price <span class="sc">~</span> ., <span class="at">data =</span> treino,</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">&quot;knn&quot;</span>,</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">trControl =</span> ctrl,</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">tuneGrid =</span> grade_knn,</span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">preProcess =</span> <span class="fu">c</span>(<span class="st">&quot;center&quot;</span>, <span class="st">&quot;scale&quot;</span>)</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a>modelo_knn<span class="sc">$</span>bestTune</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>   k
+2 10</code></pre>
+</div>
+<details class="code-fold">
+<summary>mostrar código</summary>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>pred_knn_teste <span class="ot">&lt;-</span> <span class="fu">predict</span>(modelo_knn, teste)</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_knn_teste)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 3
+   rmse   mae    r2
+  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+1 0.201 0.144 0.859</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="comparação-final-e-escolha-do-modelo" class="level2">
+<h2 class="anchored" data-anchor-id="comparação-final-e-escolha-do-modelo">6. Comparação final e escolha do modelo</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>mostrar código</summary>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>comparacao <span class="ot">&lt;-</span> <span class="fu">tribble</span>(</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>  <span class="sc">~</span>modelo, <span class="sc">~</span>rmse, <span class="sc">~</span>mae, <span class="sc">~</span>r2,</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;Regressão Linear&quot;</span>, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_lm_teste)<span class="sc">$</span>rmse, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_lm_teste)<span class="sc">$</span>mae, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_lm_teste)<span class="sc">$</span>r2,</span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;Ridge&quot;</span>,             <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_ridge_teste)<span class="sc">$</span>rmse, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_ridge_teste)<span class="sc">$</span>mae, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_ridge_teste)<span class="sc">$</span>r2,</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;Lasso&quot;</span>,             <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_lasso_teste)<span class="sc">$</span>rmse, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_lasso_teste)<span class="sc">$</span>mae, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_lasso_teste)<span class="sc">$</span>r2,</span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;Random Forest&quot;</span>,     <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_rf_teste)<span class="sc">$</span>rmse, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_rf_teste)<span class="sc">$</span>mae, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_rf_teste)<span class="sc">$</span>r2,</span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;XGBoost&quot;</span>,           <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_xgb_teste)<span class="sc">$</span>rmse, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_xgb_teste)<span class="sc">$</span>mae, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_xgb_teste)<span class="sc">$</span>r2,</span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;KNN&quot;</span>,               <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_knn_teste)<span class="sc">$</span>rmse, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_knn_teste)<span class="sc">$</span>mae, <span class="fu">metricas</span>(teste<span class="sc">$</span>log_price, pred_knn_teste)<span class="sc">$</span>r2</span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span> <span class="fu">arrange</span>(rmse)</span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a>comparacao</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 × 4
+  modelo            rmse   mae    r2
+  &lt;chr&gt;            &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+1 XGBoost          0.166 0.117 0.903
+2 Random Forest    0.176 0.122 0.892
+3 KNN              0.201 0.144 0.859
+4 Lasso            0.211 0.157 0.843
+5 Regressão Linear 0.211 0.157 0.843
+6 Ridge            0.212 0.157 0.843</code></pre>
+</div>
+<details class="code-fold">
+<summary>mostrar código</summary>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>mae_dolar_lm  <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(<span class="fu">exp</span>(teste<span class="sc">$</span>log_price) <span class="sc">-</span> <span class="fu">exp</span>(pred_lm_teste)))</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>mae_dolar_rf  <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(<span class="fu">exp</span>(teste<span class="sc">$</span>log_price) <span class="sc">-</span> <span class="fu">exp</span>(pred_rf_teste)))</span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>mae_dolar_xgb <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(<span class="fu">exp</span>(teste<span class="sc">$</span>log_price) <span class="sc">-</span> <span class="fu">exp</span>(pred_xgb_teste)))</span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>mae_dolar_knn <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(<span class="fu">exp</span>(teste<span class="sc">$</span>log_price) <span class="sc">-</span> <span class="fu">exp</span>(pred_knn_teste)))</span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>mediana_preco_teste <span class="ot">&lt;-</span> <span class="fu">median</span>(<span class="fu">exp</span>(teste<span class="sc">$</span>log_price))</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">modelo =</span> <span class="fu">c</span>(<span class="st">&quot;Regressão Linear&quot;</span>, <span class="st">&quot;Random Forest&quot;</span>, <span class="st">&quot;XGBoost&quot;</span>, <span class="st">&quot;KNN&quot;</span>),</span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">mae_dolares =</span> <span class="fu">c</span>(mae_dolar_lm, mae_dolar_rf, mae_dolar_xgb, mae_dolar_knn),</span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">mae_percentual_da_mediana =</span> <span class="fu">c</span>(mae_dolar_lm, mae_dolar_rf, mae_dolar_xgb, mae_dolar_knn) <span class="sc">/</span> mediana_preco_teste</span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 3
   modelo           mae_dolares mae_percentual_da_mediana
   &lt;chr&gt;                  &lt;dbl&gt;                     &lt;dbl&gt;
 1 Regressão Linear      89810.                     0.200
-2 Random Forest         66998.                     0.149</code></pre>
+2 Random Forest         66998.                     0.149
+3 XGBoost               63424.                     0.141
+4 KNN                   80123.                     0.178</code></pre>
 </div>
 </div>
-<p>A Random Forest supera a regressão linear em todas as métricas no conjunto de teste, com uma redução de erro que considero relevante em termos de negócio (não só estatisticamente melhor). <strong>Modelo escolhido: Random Forest</strong>, pelos motivos estruturais já explicados na seção 4 (localização não-linear, cauda longa em área de lote, robustez a colinearidade residual) e confirmados agora pelo ganho real de desempenho fora da amostra.</p>
+<p>Seis modelos testados, do mais simples ao mais flexível. XGBoost venceu por RMSE no teste — mesmo padrão que encontrei na versão Python.</p>
+<p><strong>Nesta implementação (R), continuo com Random Forest</strong> para o restante do notebook (itens 2.2 e 2.3 desta versão): os motivos estruturais da seção 4 (localização não-linear, robustez a colinearidade residual) continuam valendo, e a diferença de desempenho entre os dois é pequena perto da diferença de ambos para a regressão linear. Random Forest fica documentada aqui como o modelo mais forte entre os que testei e descartei nesta versão, não como algo ruim.</p>
+<p><strong>Para o projeto como um todo</strong>, no entanto, testei a mesma vantagem do XGBoost sob a validação mais rigorosa que tenho (CV agrupada por CEP, item 2.2) na implementação Python — e ela sobreviveu, com o XGBoost inclusive generalizando proporcionalmente <em>melhor</em> que a Random Forest em bairros nunca vistos. Por isso adotei <strong>XGBoost, na implementação Python (<code>python/02-1_modelagem.ipynb</code>), como modelo de referência do projeto</strong> — é a partir dali que os itens 2.2, 2.3, a estratégia de deploy e a comunicação com stakeholders seguem. Esta versão R permanece completa e válida como implementação alternativa.</p>
+<p>KNN, como esperado de um modelo puramente baseado em distância sem noção de árvore/interação, fica atrás dos modelos que capturam nao-linearidade de forma mais estruturada — mas não fica ridiculamente pior, o que sugere que a normalização das variáveis e a boa cobertura de vizinhos por bairro (o <code>k</code> escolhido) já carregam boa parte do sinal geográfico sozinhas.</p>
 </section>
 <section id="importância-das-variáveis" class="level2">
-<h2 class="anchored" data-anchor-id="importância-das-variáveis">6. Importância das variáveis</h2>
+<h2 class="anchored" data-anchor-id="importância-das-variáveis">7. Importância das variáveis</h2>
 <div class="cell">
 <details class="code-fold">
 <summary>mostrar código</summary>
-<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>importancia <span class="ot">&lt;-</span> randomForest<span class="sc">::</span><span class="fu">importance</span>(modelo_rf<span class="sc">$</span>finalModel) <span class="sc">|&gt;</span></span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.data.frame</span>() <span class="sc">|&gt;</span></span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rownames_to_column</span>(<span class="st">&quot;variavel&quot;</span>) <span class="sc">|&gt;</span></span>
-<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(<span class="st">`</span><span class="at">%IncMSE</span><span class="st">`</span>))</span>
-<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>importancia</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>importancia <span class="ot">&lt;-</span> randomForest<span class="sc">::</span><span class="fu">importance</span>(modelo_rf<span class="sc">$</span>finalModel) <span class="sc">|&gt;</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.data.frame</span>() <span class="sc">|&gt;</span></span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rownames_to_column</span>(<span class="st">&quot;variavel&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(<span class="st">`</span><span class="at">%IncMSE</span><span class="st">`</span>))</span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>importancia</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>                 variavel  %IncMSE IncNodePurity
@@ -3463,10 +3620,10 @@ The final value used for the model was mtry = 7.</code></pre>
 </div>
 <details class="code-fold">
 <summary>mostrar código</summary>
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(importancia, <span class="fu">aes</span>(<span class="fu">reorder</span>(variavel, <span class="st">`</span><span class="at">%IncMSE</span><span class="st">`</span>), <span class="st">`</span><span class="at">%IncMSE</span><span class="st">`</span>)) <span class="sc">+</span></span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;% de aumento no erro (MSE) quando a variável é embaralhada&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(importancia, <span class="fu">aes</span>(<span class="fu">reorder</span>(variavel, <span class="st">`</span><span class="at">%IncMSE</span><span class="st">`</span>), <span class="st">`</span><span class="at">%IncMSE</span><span class="st">`</span>)) <span class="sc">+</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>() <span class="sc">+</span></span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">&quot;% de aumento no erro (MSE) quando a variável é embaralhada&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -3482,31 +3639,31 @@ The final value used for the model was mtry = 7.</code></pre>
 <p>Na prática, o que levo daqui: localização, tamanho da casa e padrão construtivo são todos preditores fortes — as duas métricas concordam nisso, só discordam em qual delas priorizar por causa de como cada uma lida com a colinearidade residual entre as variáveis. Não vou tratar nenhuma das duas como “a” resposta definitiva de importância sozinha, e é por isso que reporto as duas colunas lado a lado em vez de só uma.</p>
 </section>
 <section id="diagnóstico-dos-resíduos-modelo-final" class="level2">
-<h2 class="anchored" data-anchor-id="diagnóstico-dos-resíduos-modelo-final">7. Diagnóstico dos resíduos (modelo final)</h2>
+<h2 class="anchored" data-anchor-id="diagnóstico-dos-resíduos-modelo-final">8. Diagnóstico dos resíduos (modelo final)</h2>
 <div class="cell">
 <details class="code-fold">
 <summary>mostrar código</summary>
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>diagnostico <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">real     =</span> <span class="fu">exp</span>(teste<span class="sc">$</span>log_price),</span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">previsto =</span> <span class="fu">exp</span>(pred_rf_teste)</span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">residuo =</span> real <span class="sc">-</span> previsto)</span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(diagnostico, <span class="fu">aes</span>(previsto, real)) <span class="sc">+</span></span>
-<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">color =</span> <span class="st">&quot;firebrick&quot;</span>) <span class="sc">+</span></span>
-<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">labels =</span> <span class="fu">label_dollar</span>()) <span class="sc">+</span></span>
-<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> <span class="fu">label_dollar</span>()) <span class="sc">+</span></span>
-<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Previsto vs. real&quot;</span>)</span>
-<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(diagnostico, <span class="fu">aes</span>(previsto, residuo)) <span class="sc">+</span></span>
-<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">&quot;firebrick&quot;</span>) <span class="sc">+</span></span>
-<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">labels =</span> <span class="fu">label_dollar</span>()) <span class="sc">+</span></span>
-<span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> <span class="fu">label_dollar</span>()) <span class="sc">+</span></span>
-<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Resíduos vs. previsto&quot;</span>)</span>
-<span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">|</span> p2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a>diagnostico <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">real     =</span> <span class="fu">exp</span>(teste<span class="sc">$</span>log_price),</span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">previsto =</span> <span class="fu">exp</span>(pred_rf_teste)</span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">residuo =</span> real <span class="sc">-</span> previsto)</span>
+<span id="cb39-6"><a href="#cb39-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-7"><a href="#cb39-7" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(diagnostico, <span class="fu">aes</span>(previsto, real)) <span class="sc">+</span></span>
+<span id="cb39-8"><a href="#cb39-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb39-9"><a href="#cb39-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">color =</span> <span class="st">&quot;firebrick&quot;</span>) <span class="sc">+</span></span>
+<span id="cb39-10"><a href="#cb39-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">labels =</span> <span class="fu">label_dollar</span>()) <span class="sc">+</span></span>
+<span id="cb39-11"><a href="#cb39-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> <span class="fu">label_dollar</span>()) <span class="sc">+</span></span>
+<span id="cb39-12"><a href="#cb39-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Previsto vs. real&quot;</span>)</span>
+<span id="cb39-13"><a href="#cb39-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-14"><a href="#cb39-14" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(diagnostico, <span class="fu">aes</span>(previsto, residuo)) <span class="sc">+</span></span>
+<span id="cb39-15"><a href="#cb39-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb39-16"><a href="#cb39-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">&quot;firebrick&quot;</span>) <span class="sc">+</span></span>
+<span id="cb39-17"><a href="#cb39-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">labels =</span> <span class="fu">label_dollar</span>()) <span class="sc">+</span></span>
+<span id="cb39-18"><a href="#cb39-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> <span class="fu">label_dollar</span>()) <span class="sc">+</span></span>
+<span id="cb39-19"><a href="#cb39-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Resíduos vs. previsto&quot;</span>)</span>
+<span id="cb39-20"><a href="#cb39-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-21"><a href="#cb39-21" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">|</span> p2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -3519,11 +3676,11 @@ The final value used for the model was mtry = 7.</code></pre>
 <p>O gráfico de resíduos mostra um padrão que eu já esperava dado o que vi na EDA: para os imóveis mais caros (cauda direita da distribuição de <code>price</code>), o modelo tende a <strong>subestimar</strong> o preço — os pontos ficam sistematicamente abaixo da linha de 45°. Isso é uma limitação conhecida de Random Forest em regressão: como a previsão final é uma média das árvores, ela tem dificuldade em extrapolar para os valores extremos da cauda. Registro isso como limitação explícita do modelo, relevante para a fase de comunicação com stakeholders (o modelo é mais confiável para o mercado “típico” do que para mansões/imóveis de altíssimo padrão).</p>
 </section>
 <section id="generalização-o-que-me-dá-confiança-de-que-isso-não-é-sorte-de-um-único-split" class="level2">
-<h2 class="anchored" data-anchor-id="generalização-o-que-me-dá-confiança-de-que-isso-não-é-sorte-de-um-único-split">8. Generalização — o que me dá confiança de que isso não é sorte de um único split</h2>
+<h2 class="anchored" data-anchor-id="generalização-o-que-me-dá-confiança-de-que-isso-não-é-sorte-de-um-único-split">9. Generalização — o que me dá confiança de que isso não é sorte de um único split</h2>
 <div class="cell">
 <details class="code-fold">
 <summary>mostrar código</summary>
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>modelo_rf<span class="sc">$</span>resample</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>modelo_rf<span class="sc">$</span>resample</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>       RMSE  Rsquared       MAE Resample
@@ -3535,7 +3692,7 @@ The final value used for the model was mtry = 7.</code></pre>
 </div>
 <details class="code-fold">
 <summary>mostrar código</summary>
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sd</span>(modelo_rf<span class="sc">$</span>resample<span class="sc">$</span>RMSE)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sd</span>(modelo_rf<span class="sc">$</span>resample<span class="sc">$</span>RMSE)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 0.002621909</code></pre>
@@ -3551,12 +3708,12 @@ The final value used for the model was mtry = 7.</code></pre>
 </ul>
 </section>
 <section id="persistindo-o-modelo-final" class="level2">
-<h2 class="anchored" data-anchor-id="persistindo-o-modelo-final">9. Persistindo o modelo final</h2>
+<h2 class="anchored" data-anchor-id="persistindo-o-modelo-final">10. Persistindo o modelo final</h2>
 <div class="cell">
 <details class="code-fold">
 <summary>mostrar código</summary>
-<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">&quot;../models&quot;</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(modelo_rf, <span class="st">&quot;../models/modelo_rf.rds&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">&quot;../models&quot;</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(modelo_rf, <span class="st">&quot;../models/modelo_rf.rds&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <p>Salvo o modelo treinado em disco para poder reutilizá-lo na etapa de previsão sobre <code>future_unseen_examples.csv</code> e na discussão de deploy, sem precisar retreinar tudo de novo.</p>
