@@ -1,0 +1,181 @@
+---
+title: "Previsão de Preços de Imóveis — Resumo para Negócio"
+format:
+  html:
+    embed-resources: true
+    page-layout: full
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{=html}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{
+  --bg:#F6F8F6; --surface:#FFFFFF; --ink:#16211C; --ink-muted:#55645C;
+  --accent:#1B6E63; --accent-soft:#DEEBE7; --warn:#AD5A22; --warn-soft:#F3E3D3; --line:#DDE3DD;
+}
+body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans',sans-serif; max-width:900px; margin:0 auto; padding:12px 28px 64px; line-height:1.6; }
+h1,h2{ font-family:'Newsreader',serif; font-weight:600; }
+h1{ font-size:2.3rem; margin-bottom:.15em; }
+.lede{ font-family:'Newsreader',serif; font-style:italic; font-size:1.2rem; color:var(--ink-muted); max-width:60ch; }
+h2{ font-size:1.4rem; margin-top:2.4em; border-top:1px solid var(--line); padding-top:.8em; }
+.tiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:8px; overflow:hidden; margin:20px 0; }
+.tile{ background:var(--surface); padding:18px 20px; }
+.tile .v{ font-family:'IBM Plex Mono',monospace; font-size:1.7rem; font-weight:600; color:var(--accent); }
+.tile .l{ font-size:.82rem; color:var(--ink-muted); margin-top:2px; }
+.callout{ background:var(--accent-soft); border-left:3px solid var(--accent); border-radius:6px; padding:14px 18px; margin:18px 0; }
+.callout.warn{ background:var(--warn-soft); border-left-color:var(--warn); }
+.callout b{ display:block; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); margin-bottom:4px; }
+.callout.warn b{ color:var(--warn); }
+footer{ margin-top:3em; padding-top:1.2em; border-top:1px solid var(--line); font-size:.85rem; color:var(--ink-muted); }
+</style>
+```
+
+```{r setup}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(scales)
+library(randomForest)
+library(caret)
+
+pal_business <- theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    axis.title = element_blank(),
+    plot.title = element_text(face = "bold")
+  )
+theme_set(pal_business)
+
+set.seed(42)
+casas_raw <- read_csv("../data/kc_house_data.csv", show_col_types = FALSE) |> clean_names()
+demograf  <- read_csv("../data/zipcode_demographics.csv", show_col_types = FALSE) |>
+  clean_names() |> mutate(zipcode = as.character(zipcode))
+
+casas <- casas_raw |>
+  mutate(date = as.Date(date, format = "%Y%m%dT%H%M%S"), zipcode = as.character(zipcode)) |>
+  filter(bedrooms < 30) |>
+  mutate(log_price = log(price), tem_porao = as.integer(sqft_basement > 0),
+         idade_casa = year(date) - yr_built, reformado = as.integer(yr_renovated > 0)) |>
+  left_join(demograf, by = "zipcode")
+
+vars_modelo <- c("log_price", "bedrooms", "bathrooms", "sqft_living", "sqft_lot", "floors",
+  "waterfront", "view", "condition", "grade", "tem_porao", "idade_casa", "reformado",
+  "lat", "long", "sqft_living15", "sqft_lot15", "medn_hshld_incm_amt", "medn_incm_per_prsn_amt",
+  "hous_val_amt", "per_bchlr", "per_prfsnl")
+dados_modelo <- casas |> select(all_of(vars_modelo))
+
+idx_treino <- createDataPartition(dados_modelo$log_price, p = 0.8, list = FALSE)
+treino <- dados_modelo[idx_treino, ]
+teste  <- dados_modelo[-idx_treino, ]
+
+modelo_rf <- readRDS("../models/modelo_rf.rds")
+pred_rf_teste <- predict(modelo_rf, teste)
+mae_rf_dolar <- mean(abs(exp(teste$log_price) - exp(pred_rf_teste)))
+mediana_treino <- median(casas$price)
+mae_rf_pct <- mae_rf_dolar / mediana_treino
+
+modelo_lm <- lm(log_price ~ ., data = treino)
+pred_lm_teste <- predict(modelo_lm, teste)
+mae_lm_dolar <- mean(abs(exp(teste$log_price) - exp(pred_lm_teste)))
+mae_lm_pct <- mae_lm_dolar / mediana_treino
+
+coef_grade <- coef(modelo_lm)["grade"]
+efeito_grade_pct <- (exp(coef_grade) - 1) * 100
+coef_sqft <- coef(modelo_lm)["sqft_living"]
+efeito_sqft100_pct <- (exp(coef_sqft * 100) - 1) * 100
+
+importancia <- randomForest::importance(modelo_rf$finalModel) |>
+  as.data.frame() |>
+  rownames_to_column("variavel") |>
+  arrange(desc(IncNodePurity)) |>
+  slice(1:6) |>
+  mutate(rotulo = case_match(variavel,
+    "sqft_living"     ~ "Tamanho da casa",
+    "grade"           ~ "Padrão de acabamento/construção",
+    "hous_val_amt"    ~ "Valor médio dos imóveis no bairro",
+    "per_prfsnl"      ~ "% de moradores com ocupação de nível superior no bairro",
+    "lat"             ~ "Localização (norte–sul)",
+    "per_bchlr"       ~ "% de moradores com diploma universitário no bairro",
+    .default = variavel
+  ))
+```
+
+# Previsão de Preços de Imóveis
+
+<p class="lede">O que este modelo entrega, o quanto ele acerta, e onde eu confiaria menos nele — explicado para quem vai usar o número, não só para quem construiu o modelo.</p>
+
+<div class="tiles">
+  <div class="tile"><div class="v">`r comma(nrow(casas))`</div><div class="l">vendas usadas para aprender</div></div>
+  <div class="tile"><div class="v">`r dollar(mae_rf_dolar, accuracy = 1)`</div><div class="l">erro típico por imóvel</div></div>
+  <div class="tile"><div class="v">`r percent(mae_rf_pct, accuracy = 0.1)`</div><div class="l">erro típico, em % do preço</div></div>
+</div>
+
+Em palavras simples: para um imóvel de valor mediano na região (`r dollar(mediana_treino, accuracy = 1)`), a estimativa do modelo costuma ficar a menos de `r dollar(mae_rf_dolar, accuracy = 1)` do preço real de venda. Isso é um ponto de partida sólido para negociação e triagem — não um laudo de avaliação final.
+
+## O que mais pesa no preço
+
+```{r grafico-importancia}
+#| fig-height: 3.4
+ggplot(importancia, aes(reorder(rotulo, IncNodePurity), IncNodePurity)) +
+  geom_col(fill = "#1B6E63", width = 0.65) +
+  coord_flip() +
+  labs(title = "Fatores mais associados ao preço do imóvel")
+```
+
+Dois exemplos concretos, direto dos coeficientes do modelo mais simples que testei (regressão linear, mantendo os demais fatores constantes):
+
+<div class="callout">
+<b>Padrão de acabamento</b>
+Cada ponto a mais na escala de padrão construtivo (1 a 13) está associado a cerca de <b>`r round(efeito_grade_pct, 1)`% a mais</b> no preço, em média.
+</div>
+
+<div class="callout">
+<b>Tamanho da casa</b>
+Cada 100 pés² a mais de área construída estão associados a cerca de <b>`r round(efeito_sqft100_pct, 1)`% a mais</b> no preço, em média.
+</div>
+
+Um ponto que vale destacar: três dos seis fatores mais fortes **não são características do imóvel em si, são do bairro** (valor médio dos imóveis, % de moradores com ocupação de nível superior, % com diploma universitário). Isso quer dizer que o modelo está aprendendo tanto "essa casa é boa" quanto "esse bairro é valorizado" — os dois pesam.
+
+## Por que Random Forest, e não um modelo mais simples
+
+```{r comparacao-modelos}
+#| fig-height: 2.2
+tibble(
+  modelo = c("Regressão linear\n(mais simples)", "Random Forest\n(escolhido)"),
+  mae = c(mae_lm_dolar, mae_rf_dolar)
+) |>
+  ggplot(aes(mae, fct_rev(modelo))) +
+  geom_col(fill = c("#B7C4BC", "#1B6E63"), width = 0.55) +
+  geom_text(aes(label = dollar(mae, accuracy = 1)), hjust = -0.15, size = 4) +
+  scale_x_continuous(expand = expansion(mult = c(0, .25))) +
+  labs(title = "Erro típico por imóvel, por modelo")
+```
+
+Testei um modelo simples (regressão linear) como referência e um modelo mais flexível (Random Forest). O Random Forest errou, em média, `r dollar(mae_lm_dolar - mae_rf_dolar, accuracy = 1)` a menos por imóvel — a diferença vem principalmente da localização: o efeito da região no preço não é uma linha reta (bairros vizinhos podem ter preços bem diferentes por razões que não seguem um padrão simples), e o modelo mais flexível captura esse tipo de padrão melhor.
+
+## Onde eu confiaria menos na previsão
+
+<div class="callout warn">
+<b>Bairros sem histórico de vendas</b>
+Quando testei o modelo especificamente em CEPs que ele nunca tinha visto durante o treino, o erro subiu cerca de <b>16%</b> em relação ao caso normal — bem mais do que a degradação natural de testar em vendas mais recentes (cerca de 7%). Ou seja: a maior fraqueza do modelo não é "ficar desatualizado com o tempo", é **avaliar um bairro novo ou raramente vendido**. Nesses casos, recomendo tratar a previsão como um número inicial a ser confirmado por uma avaliação humana, não como resposta final.
+</div>
+
+<div class="callout warn">
+<b>Imóveis de altíssimo padrão</b>
+Nos testes, o modelo tende a **subestimar** o preço dos imóveis mais caros da base (mansões, propriedades excepcionais) — uma limitação conhecida desse tipo de modelo, que estima por meio de uma média entre muitas árvores de decisão e por isso tem dificuldade em alcançar os valores mais extremos. Para esse segmento específico, o número do modelo deve ser tratado como piso, não como estimativa central.
+</div>
+
+## Como eu recomendaria usar isso no dia a dia
+
+- Como **ponto de partida de negociação** ou **triagem em massa** (ex.: sinalizar imóveis com preço pedido muito fora da estimativa do modelo, para revisão prioritária).
+- **Não** como laudo de avaliação final — nenhum modelo estatístico substitui uma vistoria para casos de alto valor ou de bairro pouco representado no histórico.
+- Combinado com a flag de confiança descrita na estratégia de deploy: quando o imóvel estiver num CEP fora do treino, o número deve vir acompanhado de um aviso, não apresentado com a mesma confiança de um bairro bem coberto.
+
+<footer>
+Detalhamento técnico completo — variáveis, testes estatísticos, escolha e validação do modelo — em <code>analysis/01_eda.qmd</code> (item 1), <code>analysis/02-1_modelagem.qmd</code> e <code>analysis/02-2_generalizacao.qmd</code> (item 2).
+</footer>
