@@ -18,7 +18,7 @@ Comparei 4 modelos em `02-1_modelagem.ipynb` (Regressão Linear, Ridge, Random F
 03_estrategia_deploy.md                             item 3 — notas específicas do stack Python (ver docs/03_estrategia_deploy.html para o diagrama principal)
 05_comunicacao_stakeholders_calculos.ipynb / .html  item 5 — cálculos por trás de docs/05_comunicacao_stakeholders.html
 models/modelo_xgb.joblib                            modelo final (XGBRegressor) — usado pelos itens 2.2, 2.3, 5 e deploy
-models/modelo_rf.joblib                             Random Forest, mantida salva como referência de comparação (não usada em mais nada)
+models/modelo_rf.joblib                             Random Forest, referência de comparação (não usada em mais nada) — gerada ao rodar 02-1_modelagem.ipynb, não versionada (ver .gitignore)
 output/previsoes_future_unseen.csv
 ```
 
