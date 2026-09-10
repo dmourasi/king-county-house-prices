@@ -18,6 +18,8 @@ A EDA (item 1, `01_eda.qmd`) foi a primeira coisa feita neste projeto — as dec
 05_comunicacao_stakeholders_calculos.qmd / .html    item 5 — versão alternativa dos cálculos, rodando sobre a Random Forest desta pasta
 ```
 
+Os modelos treinados por `02-1_modelagem.qmd` ficam em `../models/` (fora desta pasta, junto com o `output/` do item 2.3): `modelo_rf.rds` (Random Forest, ~44MB — a que o restante do pipeline R carrega) e `modelo_xgb.rds` (XGBoost, ~0,4MB — venceu a comparação também aqui, mantido salvo como evidência, mesmo não usado por nenhuma etapa seguinte desta versão). Mesmo padrão da versão Python, que mantém os dois modelos comparados em `python/models/`.
+
 A versão apresentável do item 5 (`docs/05_comunicacao_stakeholders.html`) e os itens 3 e 4 (`docs/03_estrategia_deploy.html`, `docs/04_aprendizado_continuo.html`) seguem o modelo de referência (Python) e vivem em `../docs/`, não aqui.
 
 ## Como reproduzir
@@ -43,6 +45,6 @@ quarto render 05_comunicacao_stakeholders_calculos.qmd
 | Regressão Linear | 0,211 | 0,157 | 0,843 |
 | Ridge | 0,212 | 0,157 | 0,843 |
 
-Em dólar (MAE): Regressão Linear US\$ 89.810 (20,0% da mediana) · Random Forest US\$ 66.998 (14,9%) · XGBoost US\$ 63.424 (14,1%) · KNN US\$ 80.123 (17,8%).
+Em dólar (MAE): Regressão Linear US\$ 89.810 (20,0% da mediana) · Random Forest US\$ 67.047 (14,9%) · XGBoost US\$ 63.424 (14,1%) · KNN US\$ 80.123 (17,8%).
 
 **Generalização** (item 2.2, modelo Random Forest): split temporal piora o RMSE em **+7%**; CV agrupada por CEP piora em **+16%** — mesma ordem de risco (bairro novo > tempo) encontrada na versão Python (+13,0% / +20,5%, respectivamente, com XGBoost).

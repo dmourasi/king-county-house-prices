@@ -11,7 +11,7 @@ data/         dados brutos fornecidos (kc_house_data.csv, zipcode_demographics.c
 analysis/     implementação R — item 1 (EDA) + item 2 alternativo (Random Forest) + item 5 alternativo
 python/       implementação de referência — item 1 (EDA) + item 2 (XGBoost) + item 5 (cálculos)
 docs/         entregáveis finais dos itens 3, 4 e 5 — seguem o modelo de referência, não são específicos de linguagem
-models/       modelo R salvo (modelo_rf.rds) usado pela versão alternativa
+models/       modelos R salvos: modelo_rf.rds (usado pela versão alternativa) e modelo_xgb.rds (comparação, evidência)
 output/       previsões da versão R (item 2.3) sobre future_unseen_examples.csv — equivalente a python/output/
 ```
 
@@ -22,8 +22,8 @@ flowchart TD
     DATA["data/*.csv"] --> EDA["Item 1 · EDA\nanalysis/01_eda.qmd (R)\npython/01_eda.ipynb"]
     EDA --> MODEL["Item 2.1 · Modelagem\npython/02-1_modelagem.ipynb → XGBoost (referência)\nanalysis/02-1_modelagem.qmd → Random Forest (alternativa)"]
     MODEL -->|modelo salvo| GEN["Item 2.2 · Generalização\npython/02-2_generalizacao.ipynb\nanalysis/02-2_generalizacao.qmd"]
-    MODEL -->|modelo salvo| PREV["Item 2.3 · Previsão\npython/02-3_previsao_futuro.ipynb"]
-    PREV --> OUT["python/output/previsoes_future_unseen.csv"]
+    MODEL -->|modelo salvo| PREV["Item 2.3 · Previsão\npython/02-3_previsao_futuro.ipynb\nanalysis/02-3_previsao_futuro.qmd"]
+    PREV --> OUT["python/output/previsoes_future_unseen.csv\noutput/previsoes_future_unseen.csv"]
     GEN --> DEPLOY["Item 3 · Deploy\ndocs/03_estrategia_deploy.html"]
     GEN --> LEARN["Item 4 · Aprendizado contínuo\ndocs/04_aprendizado_continuo.html"]
     MODEL -->|importância + coeficientes| CALC["python/05_comunicacao_stakeholders_calculos.ipynb\n(analysis/..._calculos.qmd = alternativa R)"]
@@ -34,9 +34,9 @@ flowchart TD
 | Etapa | Item | Roda sobre | Arquivo (referência, Python) | Arquivo (alternativa, R) | Produz |
 |---|---|---|---|---|---|
 | Análise exploratória | 1 | dados brutos | `python/01_eda.ipynb` | `analysis/01_eda.qmd` | decisões de feature engineering |
-| Modelagem | 2.1 | dados + features | `python/02-1_modelagem.ipynb` | `analysis/02-1_modelagem.qmd` | `python/models/modelo_xgb.joblib` (ou `models/modelo_rf.rds`) |
+| Modelagem | 2.1 | dados + features | `python/02-1_modelagem.ipynb` | `analysis/02-1_modelagem.qmd` | `python/models/{modelo_xgb,modelo_rf}.joblib` e `models/{modelo_rf,modelo_xgb}.rds` — os 2 modelos mais fortes de cada lado, não só o escolhido |
 | Generalização | 2.2 | modelo salvo | `python/02-2_generalizacao.ipynb` | `analysis/02-2_generalizacao.qmd` | números de risco (temporal, CEP novo) |
-| Previsão em dados novos | 2.3 | modelo salvo | `python/02-3_previsao_futuro.ipynb` | — | `python/output/previsoes_future_unseen.csv` |
+| Previsão em dados novos | 2.3 | modelo salvo | `python/02-3_previsao_futuro.ipynb` | `analysis/02-3_previsao_futuro.qmd` | `python/output/previsoes_future_unseen.csv` e `output/previsoes_future_unseen.csv` |
 | Estratégia de deploy | 3 | modelo + generalização | `docs/03_estrategia_deploy.html` | — (diferenças em `python/03_estrategia_deploy.md`) | diagrama de arquitetura |
 | Aprendizado contínuo | 4 | generalização | `docs/04_aprendizado_continuo.html` | — | ciclo de reentreino |
 | Comunicação com stakeholders | 5 | modelo + generalização | `docs/05_comunicacao_stakeholders.html`, calculado em `python/05_comunicacao_stakeholders_calculos.ipynb` | `analysis/05_comunicacao_stakeholders_calculos.qmd` (números diferentes, roda sobre RF) | relatório de negócio |

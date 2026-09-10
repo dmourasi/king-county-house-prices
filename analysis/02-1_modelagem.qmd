@@ -362,6 +362,7 @@ Além da separação treino/teste, a busca de `mtry` já rodou em validação cr
 ```{r salvar-modelo}
 dir.create("../models", showWarnings = FALSE)
 saveRDS(modelo_rf, "../models/modelo_rf.rds")
+saveRDS(modelo_xgb, "../models/modelo_xgb.rds")
 ```
 
-Salvo o modelo treinado em disco para poder reutilizá-lo na etapa de previsão sobre `future_unseen_examples.csv` e na discussão de deploy, sem precisar retreinar tudo de novo.
+Salvo a Random Forest — o modelo que esta implementação R carrega adiante, na etapa de previsão sobre `future_unseen_examples.csv` e na discussão de deploy, sem precisar retreinar tudo de novo. Salvo também o XGBoost desta versão R, mesmo não sendo usado por nenhuma etapa seguinte *nesta* implementação: ele venceu a comparação da seção 6 também aqui, e é o objeto que sustenta essa afirmação — não só um número na tabela. Mesmo raciocínio da versão Python, que mantém salvos os dois modelos comparados (`python/models/modelo_rf.joblib` e `modelo_xgb.joblib`).
