@@ -1,7 +1,7 @@
 # Quarto build artifacts — os .html finais já são self-contained (embed-resources: true),
 # então o que fica aqui é só cache/figuras intermediárias, não necessário para reproduzir.
-analysis/*_cache/
-analysis/*_files/
+analysis-r/*_cache/
+analysis-r/*_files/
 /.quarto/
 
 # R

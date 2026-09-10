@@ -1,8 +1,8 @@
 # Versão R — implementação alternativa do projeto (itens 1, 2 e 5-alternativo)
 
-Esta pasta é a **implementação original** do projeto, em R/Quarto. O modelo final aqui é **Random Forest** — testado e validado com o mesmo rigor da versão Python (`../python/`), mas não é mais o que os itens 3, 4 e a versão apresentável do item 5 seguem: depois de comparar 6 modelos e confirmar, na versão Python, que XGBoost generaliza melhor que Random Forest (inclusive em bairros nunca vistos no treino), adotei **Python como implementação de referência** do projeto. Esta versão R fica completa e documentada como alternativa igualmente validada, não como rascunho.
+Esta pasta é a **implementação original** do projeto, em R/Quarto. O modelo final aqui é **Random Forest** — testado e validado com o mesmo rigor da versão Python (`../analysis-python/`), mas não é mais o que os itens 3, 4 e a versão apresentável do item 5 seguem: depois de comparar 6 modelos e confirmar, na versão Python, que XGBoost generaliza melhor que Random Forest (inclusive em bairros nunca vistos no treino), adotei **Python como implementação de referência** do projeto. Esta versão R fica completa e documentada como alternativa igualmente validada, não como rascunho.
 
-A EDA (item 1, `01_eda.qmd`) foi a primeira coisa feita neste projeto — as decisões de feature engineering (`log(price)`, `tem_porao`, `idade_casa`, `reformado`, remoção do imóvel de 33 quartos) nasceram aqui, e depois foram replicadas de forma independente em Python (`../python/01_eda.ipynb`), com os mesmos números.
+A EDA (item 1, `01_eda.qmd`) foi a primeira coisa feita neste projeto — as decisões de feature engineering (`log(price)`, `tem_porao`, `idade_casa`, `reformado`, remoção do imóvel de 33 quartos) nasceram aqui, e depois foram replicadas de forma independente em Python (`../analysis-python/01_eda.ipynb`), com os mesmos números.
 
 ## Por que Random Forest continua nesta versão (mesmo XGBoost tendo vencido aqui também)
 
@@ -18,7 +18,7 @@ A EDA (item 1, `01_eda.qmd`) foi a primeira coisa feita neste projeto — as dec
 05_comunicacao_stakeholders_calculos.qmd / .html    item 5 — versão alternativa dos cálculos, rodando sobre a Random Forest desta pasta
 ```
 
-Os modelos treinados por `02-1_modelagem.qmd` ficam em `../models/` (fora desta pasta, junto com o `output/` do item 2.3): `modelo_rf.rds` (Random Forest, ~44MB — a que o restante do pipeline R carrega) e `modelo_xgb.rds` (XGBoost, ~0,4MB — venceu a comparação também aqui, mantido salvo como evidência, mesmo não usado por nenhuma etapa seguinte desta versão). Mesmo padrão da versão Python, que mantém os dois modelos comparados em `python/models/`.
+Os modelos treinados por `02-1_modelagem.qmd` ficam em `../models/` (fora desta pasta, junto com o `output/` do item 2.3): `modelo_rf.rds` (Random Forest, ~44MB — a que o restante do pipeline R carrega) e `modelo_xgb.rds` (XGBoost, ~0,4MB — venceu a comparação também aqui, mantido salvo como evidência, mesmo não usado por nenhuma etapa seguinte desta versão). Mesmo padrão da versão Python, que mantém os dois modelos comparados em `analysis-python/models/`.
 
 A versão apresentável do item 5 (`docs/05_comunicacao_stakeholders.html`) e os itens 3 e 4 (`docs/03_estrategia_deploy.html`, `docs/04_aprendizado_continuo.html`) seguem o modelo de referência (Python) e vivem em `../docs/`, não aqui.
 

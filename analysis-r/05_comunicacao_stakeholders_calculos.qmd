@@ -107,7 +107,7 @@ importancia <- randomForest::importance(modelo_rf$finalModel) |>
 
 # Previsão de Preços de Imóveis
 
-<p class="lede"><strong>Versão alternativa em R (Random Forest)</strong> da bancada de cálculo do relatório de negócio (item 5) — mesma lógica, mesmo código à mostra, mas rodando sobre a implementação R deste projeto, não sobre o modelo de referência. Os números aqui (erro típico, comparação de modelos) são os da Random Forest treinada em <code>analysis/02-1_modelagem.qmd</code>, e por isso diferem dos que aparecem na versão apresentável. A bancada que efetivamente sustenta <code>docs/05_comunicacao_stakeholders.html</code> — rodando sobre o XGBoost, modelo de referência do projeto — é <code>python/05_comunicacao_stakeholders_calculos.ipynb</code>.</p>
+<p class="lede"><strong>Versão alternativa em R (Random Forest)</strong> da bancada de cálculo do relatório de negócio (item 5) — mesma lógica, mesmo código à mostra, mas rodando sobre a implementação R deste projeto, não sobre o modelo de referência. Os números aqui (erro típico, comparação de modelos) são os da Random Forest treinada em <code>analysis-r/02-1_modelagem.qmd</code>, e por isso diferem dos que aparecem na versão apresentável. A bancada que efetivamente sustenta <code>docs/05_comunicacao_stakeholders.html</code> — rodando sobre o XGBoost, modelo de referência do projeto — é <code>analysis-python/05_comunicacao_stakeholders_calculos.ipynb</code>.</p>
 
 <div class="tiles">
   <div class="tile"><div class="v">`r comma(nrow(casas))`</div><div class="l">vendas usadas para aprender</div></div>
@@ -177,5 +177,5 @@ Nos testes, o modelo tende a **subestimar** o preço dos imóveis mais caros da 
 - Combinado com a flag de confiança descrita na estratégia de deploy: quando o imóvel estiver num CEP fora do treino, o número deve vir acompanhado de um aviso, não apresentado com a mesma confiança de um bairro bem coberto.
 
 <footer>
-Detalhamento técnico completo — variáveis, testes estatísticos, escolha e validação do modelo — em <code>analysis/01_eda.qmd</code> (item 1), <code>analysis/02-1_modelagem.qmd</code> e <code>analysis/02-2_generalizacao.qmd</code> (item 2).
+Detalhamento técnico completo — variáveis, testes estatísticos, escolha e validação do modelo — em <code>analysis-r/01_eda.qmd</code> (item 1), <code>analysis-r/02-1_modelagem.qmd</code> e <code>analysis-r/02-2_generalizacao.qmd</code> (item 2).
 </footer>

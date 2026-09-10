@@ -6,7 +6,7 @@ O diagrama e a explicação completa da arquitetura estão em [`docs/03_estrateg
 
 A decisão de arquitetura não muda com o modelo ou a linguagem — só a ferramenta concreta de cada camada:
 
-| Camada | Aqui (Python, referência) | Na versão R (`analysis/02-1_modelagem.qmd`) |
+| Camada | Aqui (Python, referência) | Na versão R (`analysis-r/02-1_modelagem.qmd`) |
 |---|---|---|
 | Modelo servido | `models/modelo_xgb.joblib` (XGBoost, ~0,4MB) | `models/modelo_rf.rds` (Random Forest, ~44MB) |
 | Feature pipeline | Módulo Python compartilhado entre notebook de treino e API | Função R compartilhada entre `.qmd` e serviço |

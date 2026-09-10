@@ -7802,7 +7802,7 @@ a.anchor-link {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="An%C3%A1lise-Explorat%C3%B3ria-(item-1)-%E2%80%94-vers%C3%A3o-Python">Análise Exploratória (item 1) — versão Python<a class="anchor-link" href="#An%C3%A1lise-Explorat%C3%B3ria-(item-1)-%E2%80%94-vers%C3%A3o-Python">¶</a></h1><p>Esta é a versão Python da EDA que originalmente fiz em R em <a href="../analysis/01_eda.qmd"><code>analysis/01_eda.qmd</code></a>. Refaço aqui a análise inteira — estatística descritiva, distribuições, qualidade dos dados, correlações, multicolinearidade, geografia e dados demográficos — de forma independente, com as ferramentas do ecossistema Python (<code>pandas</code>, <code>scipy</code>, <code>statsmodels</code>, <code>matplotlib</code>/<code>seaborn</code>).</p>
+<h1 id="An%C3%A1lise-Explorat%C3%B3ria-(item-1)-%E2%80%94-vers%C3%A3o-Python">Análise Exploratória (item 1) — versão Python<a class="anchor-link" href="#An%C3%A1lise-Explorat%C3%B3ria-(item-1)-%E2%80%94-vers%C3%A3o-Python">¶</a></h1><p>Esta é a versão Python da EDA que originalmente fiz em R em <a href="../analysis-r/01_eda.qmd"><code>analysis-r/01_eda.qmd</code></a>. Refaço aqui a análise inteira — estatística descritiva, distribuições, qualidade dos dados, correlações, multicolinearidade, geografia e dados demográficos — de forma independente, com as ferramentas do ecossistema Python (<code>pandas</code>, <code>scipy</code>, <code>statsmodels</code>, <code>matplotlib</code>/<code>seaborn</code>).</p>
 <p>Onde os números batem com a versão R (o que é esperado, já que é o mesmo dataset), registro isso como confirmação cruzada entre as duas implementações. Onde há alguma diferença pontual (ex.: fórmula de assimetria, teste de hipótese equivalente), explico a causa.</p>
 </div>
 </div>
@@ -10780,7 +10780,7 @@ dtype: float64</pre>
 <li>Os dados demográficos agregam informação, mas com efeito confundido com localização (a ressalva ecológica da seção 10) — vale comparar o modelo com e sem essas variáveis para medir o ganho incremental real.</li>
 <li>Não há valores ausentes nem <em>covariate shift</em> aparente entre treino e <code>future_unseen_examples.csv</code>, então não é preciso tratamento especial de missing/extrapolação nessa etapa.</li>
 </ul>
-<p>Todas essas decisões batem com as que já tinha tomado na versão R (<code>analysis/01_eda.qmd</code>) — reforça que a escolha de feature engineering usada a partir daqui em <a href="02-1_modelagem.ipynb"><code>02-1_modelagem.ipynb</code></a> não depende de qual das duas implementações eu tivesse usado para a EDA.</p>
+<p>Todas essas decisões batem com as que já tinha tomado na versão R (<code>analysis-r/01_eda.qmd</code>) — reforça que a escolha de feature engineering usada a partir daqui em <a href="02-1_modelagem.ipynb"><code>02-1_modelagem.ipynb</code></a> não depende de qual das duas implementações eu tivesse usado para a EDA.</p>
 </div>
 </div>
 </div>
