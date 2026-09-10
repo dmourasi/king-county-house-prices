@@ -59,7 +59,9 @@ h1 em { font-style: italic; color: var(--accent); }
 .step h2 { font-size: clamp(1.35rem, 1.1rem + .8vw, 1.9rem); line-height: 1.18; margin: .2rem 0 .9rem; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
 .step p { margin: 0 0 1rem; }
 .step p:last-child { margin-bottom: 0; }
-.marker { font-family: var(--mono); font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+.marker { font-family: var(--mono); font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); cursor: pointer; display: inline-block; border-radius: 2px; outline-offset: 4px; }
+.marker:hover { color: var(--ink); }
+.marker:focus-visible { outline: 2px solid var(--accent); }
 code, .num { font-family: var(--mono); font-size: .92em; font-variant-numeric: tabular-nums; }
 .callout { border-left: 2px solid var(--alert); padding: .1rem 0 .1rem 1rem; color: var(--ink-2); font-size: .94em; margin: 1.2rem 0 0; }
 .callout.ok { border-left-color: var(--ok); }
@@ -79,16 +81,29 @@ figure.card { margin: 0; width: 100%; height: 100%; background: var(--card); bor
 .key { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; }
 .key i { width: .62rem; height: .62rem; border-radius: 1px; flex: none; }
 
+.stepnav { display: flex; gap: .3rem; margin-left: auto; }
+.stepnav button { all: unset; cursor: pointer; font-family: var(--mono); font-size: .66rem; color: var(--muted); padding: .2rem .45rem; border-radius: 2px; line-height: 1; }
+.stepnav button:hover { color: var(--ink); background: var(--card-2); }
+.stepnav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.stepnav button.active { color: var(--accent); background: var(--card-2); font-weight: 600; }
+
+.combo { width: 100%; display: flex; flex-direction: column; gap: 1.3rem; }
 .bigstat { text-align: left; width:100%; }
 .bigstat .v { font-family: var(--serif); font-weight: 700; font-size: clamp(3rem, 6vw, 4.4rem); color: var(--accent); line-height: .95; }
 .bigstat .l { font-family: var(--mono); font-size: .82rem; color: var(--ink-2); margin-top: .8rem; max-width: 26rem; }
 .bigstat .sub { font-family: var(--mono); font-size: .72rem; color: var(--muted); margin-top: .5rem; }
 
 .spec { display: flex; flex-direction: column; gap: 0; width: 100%; }
+.combo .spec { border-top: 1px solid var(--rule); padding-top: .3rem; }
 .spec-row { display: flex; justify-content: space-between; align-items: baseline; padding: .8rem 0; border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: .84rem; }
 .spec-row:last-child { border-bottom: none; }
 .spec-row .k { color: var(--muted); max-width: 60%; }
 .spec-row .v { color: var(--ink); font-weight: 600; font-size: 1rem; text-align: right; }
+.spec-row .v::before { content: "●"; font-size: .6em; margin-right: .5em; position: relative; top: -.1em; }
+.spec-row .v:not(.yes):not(.no):not(.warn)::before { content: none; }
+.spec-row .v.yes { color: var(--ok); }
+.spec-row .v.no { color: var(--muted); }
+.spec-row .v.warn { color: var(--alert); }
 
 .lbl { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-2); }
 .lbl-strong { font-family: var(--mono); font-size: 11px; fill: var(--ink); font-weight: 600; }
@@ -140,6 +155,7 @@ figure.card { margin: 0; width: 100%; height: 100%; background: var(--card); bor
         </div>
         <figcaption class="card-foot">
           <span class="legend" id="figLegend"></span>
+          <nav class="stepnav" id="stepNav" aria-label="Ir para uma seção"></nav>
         </figcaption>
       </figure>
     </div>
@@ -261,20 +277,29 @@ figure.card { margin: 0; width: 100%; height: 100%; background: var(--card); bor
     linhas.forEach(l => {
       const row = document.createElement("div");
       row.className = "spec-row";
-      row.innerHTML = `<span class="k">${l.k}</span><span class="v">${l.v}</span>`;
+      row.innerHTML = `<span class="k">${l.k}</span><span class="v${l.status ? " " + l.status : ""}">${l.v}</span>`;
       box.appendChild(row);
     });
     container.appendChild(box);
   }
 
+  function combo(container, montarBigStat, montarSpec) {
+    const box = document.createElement("div");
+    box.className = "combo";
+    container.appendChild(box);
+    montarBigStat(box);
+    montarSpec(box);
+  }
+
   const FIGS = {
     oque: {
       kicker: "O modelo", title: "Composição da base de aprendizado", sub: "O que ele viu antes de estimar qualquer preço",
-      card: (c) => specList(c, [
-        {k:"Vendas usadas para aprender", v:"21.612"},
-        {k:"Região", v:"King County, Seattle"},
-        {k:"Características usadas", v:"físicas + bairro"},
-      ]), legend: []
+      card: (c) => combo(c,
+        (box) => bigStat(box, "21.612", "vendas usadas para aprender", "King County, Seattle"),
+        (box) => specList(box, [
+          {k:"Características usadas", v:"físicas + bairro"},
+        ])
+      ), legend: []
     },
     erro: {
       kicker: "Precisão", title: "Erro médio por imóvel (US$)", sub: "Modelo escolhido vs. alternativa mais simples",
@@ -307,10 +332,10 @@ figure.card { margin: 0; width: 100%; height: 100%; background: var(--card); bor
     uso: {
       kicker: "Recomendação", title: "Como usar a previsão", sub: "Resumo prático",
       card: (c) => specList(c, [
-        {k:"Triagem em massa", v:"sim"},
-        {k:"Ponto de partida de negociação", v:"sim"},
-        {k:"Laudo de avaliação final", v:"não"},
-        {k:"Bairro sem histórico / alto padrão", v:"revisão humana"},
+        {k:"Triagem em massa", v:"sim", status:"yes"},
+        {k:"Ponto de partida de negociação", v:"sim", status:"yes"},
+        {k:"Laudo de avaliação final", v:"não", status:"no"},
+        {k:"Bairro sem histórico / alto padrão", v:"revisão humana", status:"warn"},
       ]), legend: []
     },
   };
@@ -321,6 +346,7 @@ figure.card { margin: 0; width: 100%; height: 100%; background: var(--card); bor
   const figLegend = document.getElementById("figLegend");
   const plotBox = document.getElementById("plotBox");
   const svg = document.getElementById("viz");
+  const stepNav = document.getElementById("stepNav");
 
   function desenhar(id) {
     const f = FIGS[id];
@@ -335,7 +361,7 @@ figure.card { margin: 0; width: 100%; height: 100%; background: var(--card); bor
       span.innerHTML = `<i style="background:${css(varName)}"></i>${label}`;
       figLegend.appendChild(span);
     });
-    plotBox.querySelectorAll(".spec,.bigstat").forEach(n => n.remove());
+    plotBox.querySelectorAll(".spec,.bigstat,.combo").forEach(n => n.remove());
     if (f.card) {
       clear(svg); svg.style.display = "none";
       f.card(plotBox);
@@ -343,12 +369,45 @@ figure.card { margin: 0; width: 100%; height: 100%; background: var(--card); bor
       svg.style.display = "block"; clear(svg);
       f.draw(svg, 640, 420);
     }
+    stepNav.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.step === id));
   }
-
-  desenhar("oque");
 
   const steps = Array.from(document.querySelectorAll(".step"));
   const railFill = document.getElementById("railFill");
+
+  // navegação por clique: além de rolar, cada marcador e cada botão do
+  // rodapé da figura levam direto a uma seção, sem depender do scroll.
+  function irParaStep(id) {
+    const alvo = steps.find((s) => s.dataset.step === id);
+    if (!alvo) return;
+    steps.forEach((s) => s.classList.toggle("is-active", s === alvo));
+    desenhar(id);
+    alvo.scrollIntoView({ behavior: REDUCED ? "auto" : "smooth", block: "center" });
+  }
+
+  steps.forEach((s) => {
+    const id = s.dataset.step;
+    const marker = s.querySelector(".marker");
+    const numero = marker.textContent.split("·")[0].trim();
+
+    marker.setAttribute("tabindex", "0");
+    marker.setAttribute("role", "button");
+    marker.setAttribute("aria-label", "Ir para: " + marker.textContent);
+    marker.addEventListener("click", () => irParaStep(id));
+    marker.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); irParaStep(id); }
+    });
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = numero;
+    btn.dataset.step = id;
+    btn.setAttribute("aria-label", "Ir para: " + marker.textContent);
+    btn.addEventListener("click", () => irParaStep(id));
+    stepNav.appendChild(btn);
+  });
+
+  desenhar("oque");
 
   if ("IntersectionObserver" in window) {
     const io = new IntersectionObserver((entradas) => {
