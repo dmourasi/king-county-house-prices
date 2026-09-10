@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Previsão de Preços de Casas — King County</title>
+<style>
+:root{
+  --paper:#eef1f4; --card:#f8f9fb; --ink:#10161d; --ink-2:#414c58; --muted:#717e8a;
+  --rule:#d7dee4; --accent:#1f6fd4;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua","Hoefler Text",Georgia,serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono",Consolas,"DejaVu Sans Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --paper:#0b1116; --card:#141b21; --ink:#e9eef2; --ink-2:#a7b3bc; --muted:#7c8891; --rule:#252f37; --accent:#4d90ee; }
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);line-height:1.6;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:760px;margin:0 auto;padding:5rem clamp(1rem,4vw,3rem) 5rem;}
+.eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 .8rem;}
+h1{font-size:clamp(1.8rem,1.2rem+2.4vw,2.6rem);line-height:1.1;margin:0 0 .6rem;font-weight:600;letter-spacing:-.02em;}
+p.dek{font-size:1.05rem;color:var(--ink-2);max-width:44rem;margin:0 0 2.4rem;}
+.list{display:flex;flex-direction:column;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:4px;overflow:hidden;}
+.list a{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;background:var(--card);color:var(--ink);text-decoration:none;padding:1rem 1.2rem;}
+.list a:hover{background:var(--paper);}
+.list .n{font-family:var(--mono);font-size:.72rem;color:var(--accent);min-width:1.4rem;}
+.list .t{flex:1;font-weight:600;}
+.list .go{font-family:var(--mono);font-size:.72rem;color:var(--muted);}
+footer{margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-family:var(--mono);font-size:.72rem;color:var(--muted);}
+footer a{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Desafio de Data Science · King County House Prices</p>
+  <h1>Previsão de preços de imóveis — solução completa</h1>
+  <p class="dek">Duas implementações (Python, referência, XGBoost · R, alternativa, Random Forest), do entendimento dos dados ao relatório de negócio.</p>
+
+  <div class="list">
+    <a href="analysis/01_eda.html"><span class="n">01</span><span class="t">Análise exploratória (R)</span><span class="go">abrir →</span></a>
+    <a href="python/01_eda.html"><span class="n">01</span><span class="t">Análise exploratória (Python)</span><span class="go">abrir →</span></a>
+    <a href="python/02-1_modelagem.html"><span class="n">02</span><span class="t">Modelagem — variáveis e escolha do modelo</span><span class="go">abrir →</span></a>
+    <a href="python/02-2_generalizacao.html"><span class="n">02</span><span class="t">Generalização — bootstrap, split temporal, CV por CEP</span><span class="go">abrir →</span></a>
+    <a href="docs/03_estrategia_deploy.html"><span class="n">03</span><span class="t">Estratégia de deploy</span><span class="go">abrir →</span></a>
+    <a href="docs/04_aprendizado_continuo.html"><span class="n">04</span><span class="t">Aprendizado contínuo</span><span class="go">abrir →</span></a>
+    <a href="docs/05_comunicacao_stakeholders.html"><span class="n">05</span><span class="t">Comunicação com stakeholders</span><span class="go">abrir →</span></a>
+  </div>
+
+  <footer>
+    Código-fonte e guia completo do pipeline em <a href="https://github.com/dmourasi/king-county-house-prices">github.com/dmourasi/king-county-house-prices</a>.
+  </footer>
+</div>
+</body>
+</html>

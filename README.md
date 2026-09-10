@@ -6,17 +6,15 @@
 
 Resumo rápido de onde encontrar cada item pedido abaixo:
 
-| Item | Onde está |
-|---|---|
-| 1 · Análise dos dados | [`analysis/01_eda.qmd`](analysis/01_eda.qmd) (R) · [`python/01_eda.ipynb`](python/01_eda.ipynb) |
-| 2 · Modelo, variáveis, generalização | [`python/02-1_modelagem.ipynb`](python/02-1_modelagem.ipynb) · [`python/02-2_generalizacao.ipynb`](python/02-2_generalizacao.ipynb) |
-| 3 · Estratégia de deploy | [`docs/03_estrategia_deploy.html`](docs/03_estrategia_deploy.html) |
-| 4 · Aprendizado contínuo | [`docs/04_aprendizado_continuo.html`](docs/04_aprendizado_continuo.html) |
-| 5 · Comunicação com stakeholders | [`docs/05_comunicacao_stakeholders.html`](docs/05_comunicacao_stakeholders.html) |
+| Item | Onde está (fonte) | Página renderizada |
+|---|---|---|
+| 1 · Análise dos dados | [`analysis/01_eda.qmd`](analysis/01_eda.qmd) (R) · [`python/01_eda.ipynb`](python/01_eda.ipynb) | [EDA (R)](https://dmourasi.github.io/king-county-house-prices/analysis/01_eda.html) · [EDA (Python)](https://dmourasi.github.io/king-county-house-prices/python/01_eda.html) |
+| 2 · Modelo, variáveis, generalização | [`python/02-1_modelagem.ipynb`](python/02-1_modelagem.ipynb) · [`python/02-2_generalizacao.ipynb`](python/02-2_generalizacao.ipynb) | [Modelagem](https://dmourasi.github.io/king-county-house-prices/python/02-1_modelagem.html) · [Generalização](https://dmourasi.github.io/king-county-house-prices/python/02-2_generalizacao.html) |
+| 3 · Estratégia de deploy | [`docs/03_estrategia_deploy.html`](docs/03_estrategia_deploy.html) | [Deploy](https://dmourasi.github.io/king-county-house-prices/docs/03_estrategia_deploy.html) |
+| 4 · Aprendizado contínuo | [`docs/04_aprendizado_continuo.html`](docs/04_aprendizado_continuo.html) | [Aprendizado contínuo](https://dmourasi.github.io/king-county-house-prices/docs/04_aprendizado_continuo.html) |
+| 5 · Comunicação com stakeholders | [`docs/05_comunicacao_stakeholders.html`](docs/05_comunicacao_stakeholders.html) | [Relatório de negócio](https://dmourasi.github.io/king-county-house-prices/docs/05_comunicacao_stakeholders.html) |
 
 Duas implementações completas ficam no repositório: **Python** (XGBoost, referência) e **R** (Random Forest, alternativa) — ver [`resolução.md`](resolução.md) para o porquê da escolha e como reproduzir qualquer uma das duas do zero.
-
-*Nota: o GitHub exibe os `.html` acima como código-fonte, não renderizados — para ver as páginas formatadas, baixe o arquivo e abra localmente no navegador, ou peça para eu ativar o GitHub Pages neste repositório.*
 
 O enunciado original do desafio, como recebido, segue abaixo sem alterações.
 
