@@ -18,8 +18,3 @@ Thumbs.db
 
 # Configuração/sessão de ferramenta local de desenvolvimento — não é conteúdo do projeto
 .claude/
-
-# Random Forest em Python: comparação apenas, não usada por nenhum notebook
-# downstream (o modelo de referência é modelo_xgb.joblib). Regenerada ao
-# rodar python/02-1_modelagem.ipynb; não precisa ficar versionada (25MB).
-python/models/modelo_rf.joblib
