@@ -14,7 +14,7 @@ Comparei 4 modelos em `02-1_modelagem.ipynb` (Regressão Linear, Ridge, Random F
 01_eda.ipynb / .html                                item 1 — análise exploratória completa
 02-1_modelagem.ipynb / .html                        item 2.1 — 4 modelos comparados, XGBoost escolhido, importância de variáveis
 02-2_generalizacao.ipynb / .html                    item 2.2 — bootstrap CI, split temporal, CV agrupada por CEP
-02-3_previsao_futuro.ipynb / .html                  item 2.3 — previsão em future_unseen_examples.csv
+02-3_previsao_futuro.ipynb / .html                  item 2.3 — checagem de covariate shift (incl. idade_casa) + previsão em future_unseen_examples.csv
 03_estrategia_deploy.md                             item 3 — notas específicas do stack Python (ver docs/03_estrategia_deploy.html para o diagrama principal)
 05_comunicacao_stakeholders_calculos.ipynb / .html  item 5 — cálculos por trás de docs/05_comunicacao_stakeholders.html
 models/modelo_xgb.joblib                            modelo final (XGBRegressor) — usado pelos itens 2.2, 2.3, 5 e deploy
@@ -44,6 +44,8 @@ python3 -m nbconvert --to html 01_eda.ipynb 02-1_modelagem.ipynb 02-2_generaliza
 | **XGBoost** | **0,162** | **0,907** | **63.707** |
 
 **Generalização** (item 2.2, modelo XGBoost): intervalo de confiança via bootstrap RMSE ∈ [0,156; 0,168] (estável); split temporal piora o RMSE em **+13,0%**; CV agrupada por CEP piora em **+20,5%** — mesma ordem de risco (bairro novo > tempo) encontrada quando o modelo era Random Forest, e replicada de forma independente na versão R.
+
+**Diagnóstico de resíduos** (item 2.1, seção 8): o modelo subestima sistematicamente os imóveis mais caros — viés médio de **+US\$ 78.004** no top 10% mais caro do teste (real acima do previsto), contra viés próximo de zero (-US\$ 3.222) no restante. É a base empírica, calculada aqui em cima do XGBoost, da ressalva usada na comunicação com stakeholders.
 
 ## Uma diferença técnica que vale registrar
 

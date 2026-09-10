@@ -7897,7 +7897,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=8e83bbf8">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=8e83bbf8">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7915,8 +7915,150 @@ a.anchor-link {
     <span class="s2">"waterfront"</span><span class="p">,</span> <span class="s2">"view"</span><span class="p">,</span> <span class="s2">"condition"</span><span class="p">,</span> <span class="s2">"grade"</span><span class="p">,</span> <span class="s2">"tem_porao"</span><span class="p">,</span> <span class="s2">"idade_casa"</span><span class="p">,</span> <span class="s2">"reformado"</span><span class="p">,</span>
     <span class="s2">"lat"</span><span class="p">,</span> <span class="s2">"long"</span><span class="p">,</span> <span class="s2">"sqft_living15"</span><span class="p">,</span> <span class="s2">"sqft_lot15"</span><span class="p">,</span>
     <span class="s2">"medn_hshld_incm_amt"</span><span class="p">,</span> <span class="s2">"medn_incm_per_prsn_amt"</span><span class="p">,</span> <span class="s2">"hous_val_amt"</span><span class="p">,</span> <span class="s2">"per_bchlr"</span><span class="p">,</span> <span class="s2">"per_prfsnl"</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=b161ca5a">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="3.-Checagem-antes-de-prever:-os-dados-novos-parecem-com-o-que-o-modelo-j%C3%A1-viu?">3. Checagem antes de prever: os dados novos parecem com o que o modelo já viu?<a class="anchor-link" href="#3.-Checagem-antes-de-prever:-os-dados-novos-parecem-com-o-que-o-modelo-j%C3%A1-viu?">¶</a></h2>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=5f57920d">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<p>Já tinha checado isso na fase de EDA para as variáveis físicas brutas; refaço aqui incluindo <code>idade_casa</code> especificamente, porque é uma variável derivada que dependeu da minha escolha de <code>ano_referencia</code> acima — quero confirmar que essa decisão não empurrou nenhum imóvel para fora da faixa que o modelo aprendeu.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=8ecd3d43">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [4]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">vars_checar</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"bedrooms"</span><span class="p">,</span> <span class="s2">"bathrooms"</span><span class="p">,</span> <span class="s2">"sqft_living"</span><span class="p">,</span> <span class="s2">"sqft_lot"</span><span class="p">,</span> <span class="s2">"grade"</span><span class="p">,</span> <span class="s2">"idade_casa"</span><span class="p">]</span>
 
-<span class="n">pred_log_price</span> <span class="o">=</span> <span class="n">modelo_xgb</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">futuro</span><span class="p">[</span><span class="n">vars_modelo</span><span class="p">])</span>
+<span class="n">idade_casa_treino</span> <span class="o">=</span> <span class="n">ano_referencia</span> <span class="o">-</span> <span class="n">casas_treino</span><span class="p">[</span><span class="s2">"yr_built"</span><span class="p">]</span>
+
+<span class="n">comparacao_faixa</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="n">v</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"min_treino"</span><span class="p">:</span> <span class="p">(</span><span class="n">idade_casa_treino</span> <span class="k">if</span> <span class="n">v</span> <span class="o">==</span> <span class="s2">"idade_casa"</span> <span class="k">else</span> <span class="n">casas_treino</span><span class="p">[</span><span class="n">v</span><span class="p">])</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+        <span class="s2">"max_treino"</span><span class="p">:</span> <span class="p">(</span><span class="n">idade_casa_treino</span> <span class="k">if</span> <span class="n">v</span> <span class="o">==</span> <span class="s2">"idade_casa"</span> <span class="k">else</span> <span class="n">casas_treino</span><span class="p">[</span><span class="n">v</span><span class="p">])</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+        <span class="s2">"min_futuro"</span><span class="p">:</span> <span class="n">futuro</span><span class="p">[</span><span class="n">v</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+        <span class="s2">"max_futuro"</span><span class="p">:</span> <span class="n">futuro</span><span class="p">[</span><span class="n">v</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+    <span class="p">}</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">vars_checar</span>
+<span class="p">})</span><span class="o">.</span><span class="n">T</span>
+<span class="n">comparacao_faixa</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[4]:</div>
+<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>min_treino</th>
+<th>max_treino</th>
+<th>min_futuro</th>
+<th>max_futuro</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>bedrooms</th>
+<td>0.00</td>
+<td>11.00</td>
+<td>2.00</td>
+<td>6.00</td>
+</tr>
+<tr>
+<th>bathrooms</th>
+<td>0.00</td>
+<td>8.00</td>
+<td>1.00</td>
+<td>4.50</td>
+</tr>
+<tr>
+<th>sqft_living</th>
+<td>290.00</td>
+<td>13,540.00</td>
+<td>750.00</td>
+<td>4,580.00</td>
+</tr>
+<tr>
+<th>sqft_lot</th>
+<td>520.00</td>
+<td>1,651,359.00</td>
+<td>1,194.00</td>
+<td>214,750.00</td>
+</tr>
+<tr>
+<th>grade</th>
+<td>1.00</td>
+<td>13.00</td>
+<td>5.00</td>
+<td>10.00</td>
+</tr>
+<tr>
+<th>idade_casa</th>
+<td>0.00</td>
+<td>115.00</td>
+<td>0.00</td>
+<td>114.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=c5894f6a">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [5]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">pred_log_price</span> <span class="o">=</span> <span class="n">modelo_xgb</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">futuro</span><span class="p">[</span><span class="n">vars_modelo</span><span class="p">])</span>
 
 <span class="n">resultado</span> <span class="o">=</span> <span class="n">futuro_raw</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 <span class="n">resultado</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">"preco_previsto"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">pred_log_price</span><span class="p">))</span>
@@ -7931,7 +8073,7 @@ a.anchor-link {
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[3]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[5]:</div>
 <div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
 <div>
 <style scoped="">
@@ -8064,7 +8206,7 @@ a.anchor-link {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="3.-As-previs%C3%B5es-fazem-sentido?">3. As previsões fazem sentido?<a class="anchor-link" href="#3.-As-previs%C3%B5es-fazem-sentido?">¶</a></h2>
+<h2 id="4.-As-previs%C3%B5es-fazem-sentido?">4. As previsões fazem sentido?<a class="anchor-link" href="#4.-As-previs%C3%B5es-fazem-sentido?">¶</a></h2>
 </div>
 </div>
 </div>
@@ -8073,7 +8215,7 @@ a.anchor-link {
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [4]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [6]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">comparacao</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
@@ -8091,7 +8233,7 @@ a.anchor-link {
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[4]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[6]:</div>
 <div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
 <div>
 <style scoped="">
@@ -8181,7 +8323,7 @@ a.anchor-link {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="4.-Salvando-o-resultado-final">4. Salvando o resultado final<a class="anchor-link" href="#4.-Salvando-o-resultado-final">¶</a></h2>
+<h2 id="5.-Salvando-o-resultado-final">5. Salvando o resultado final<a class="anchor-link" href="#5.-Salvando-o-resultado-final">¶</a></h2>
 </div>
 </div>
 </div>
@@ -8190,7 +8332,7 @@ a.anchor-link {
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [5]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [7]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>

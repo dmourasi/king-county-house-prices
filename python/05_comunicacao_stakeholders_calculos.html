@@ -8068,6 +8068,7 @@ dtype: float32</pre>
 <li>Split temporal (treina no passado, testa no futuro): RMSE piora <strong>+13,0%</strong> em relação ao split aleatório.</li>
 <li>CV agrupada por CEP (bairro nunca visto no treino): RMSE piora <strong>+20,5%</strong> — a maior fraqueza do modelo não é "ficar desatualizado com o tempo", é avaliar um bairro novo ou raramente vendido.</li>
 </ul>
+<p>Uma terceira ressalva, essa sim calculada diretamente aqui em cima do XGBoost (não herdada da versão R): o modelo <strong>subestima sistematicamente os imóveis mais caros</strong>. Diagnóstico de resíduos completo em <a href="02-1_modelagem.ipynb#8.-Diagn%C3%B3stico-dos-res%C3%ADduos-(modelo-final)"><code>02-1_modelagem.ipynb</code></a> — viés médio de <strong>+US$ 78.004</strong> no top 10% mais caro da base de teste (real acima do previsto), contra viés próximo de zero (-US$ 3.222) no restante. Limitação conhecida de modelos baseados em árvore: a previsão é uma média/combinação de folhas vistas no treino, com dificuldade de extrapolar para a cauda superior da distribuição.</p>
 </div>
 </div>
 </div>
