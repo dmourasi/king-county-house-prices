@@ -79,6 +79,10 @@ modelo_rf <- readRDS("../models/modelo_rf.rds")
 pred_rf_teste <- predict(modelo_rf, teste)
 real_teste    <- teste$log_price
 
+# mtry lido do próprio modelo salvo (não hardcoded), para nunca dessincronizar
+# do grid de busca de `02-1_modelagem.qmd` caso ele mude e o modelo seja retreinado
+mtry_final <- modelo_rf$bestTune$mtry
+
 set.seed(123)
 n_boot  <- 2000
 n_teste <- length(real_teste)
@@ -131,13 +135,13 @@ metricas <- function(real, previsto) {
 set.seed(42)
 modelo_temporal <- randomForest(
   log_price ~ ., data = treino_temporal |> select(all_of(vars_modelo)),
-  mtry = 7, ntree = 200
+  mtry = mtry_final, ntree = 200
 )
 pred_temporal <- predict(modelo_temporal, teste_temporal |> select(all_of(vars_modelo)))
 
 modelo_aleatorio_ref <- randomForest(
   log_price ~ ., data = treino |> select(all_of(vars_modelo)),
-  mtry = 7, ntree = 200
+  mtry = mtry_final, ntree = 200
 )
 pred_aleatorio_ref <- predict(modelo_aleatorio_ref, teste |> select(all_of(vars_modelo)))
 
@@ -147,7 +151,7 @@ bind_rows(
 )
 ```
 
-Refiz os dois modelos com `mtry = 7` (o mesmo escolhido na validação cruzada do notebook de modelagem) e `ntree = 200` fixo nos dois casos, para que a única diferença entre as duas linhas da tabela seja a **forma do split**, não o hiperparâmetro. Uso `randomForest()` diretamente em vez de `caret::train()` aqui porque não preciso mais fazer busca de hiperparâmetro — só quero comparar duas estratégias de validação sob as mesmas condições.
+Refiz os dois modelos com `mtry = mtry_final` (lido direto de `modelo_rf$bestTune$mtry`, o mesmo escolhido na validação cruzada do notebook de modelagem — não copiado à mão, para não dessincronizar se o grid de busca mudar) e `ntree = 200` fixo nos dois casos, para que a única diferença entre as duas linhas da tabela seja a **forma do split**, não o hiperparâmetro. Uso `randomForest()` diretamente em vez de `caret::train()` aqui porque não preciso mais fazer busca de hiperparâmetro — só quero comparar duas estratégias de validação sob as mesmas condições.
 
 O split temporal realmente piora o RMSE (0,189 contra 0,176 do split aleatório — cerca de 7% pior), confirmando que parte do desempenho que reportei antes vinha de o teste ter imóveis "intercalados" no tempo com o treino, algo que não vai se repetir em produção. Ainda assim, a piora é moderada, não catastrófica — o modelo continua útil, só não tão bom quanto o número original sugeria isoladamente.
 
@@ -165,7 +169,7 @@ resultado_grupos <- map_dfr(1:5, function(g) {
   treino_g <- dados_com_grupo |> filter(grupo != g) |> select(all_of(vars_modelo))
   teste_g  <- dados_com_grupo |> filter(grupo == g) |> select(all_of(vars_modelo))
 
-  modelo_g <- randomForest(log_price ~ ., data = treino_g, mtry = 7, ntree = 200)
+  modelo_g <- randomForest(log_price ~ ., data = treino_g, mtry = mtry_final, ntree = 200)
   pred_g   <- predict(modelo_g, teste_g)
 
   metricas(teste_g$log_price, pred_g) |>
