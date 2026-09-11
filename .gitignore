@@ -12,6 +12,16 @@ analysis-r/*_files/
 # Zip original do desafio — redundante com data/ e README.md (mesmo conteúdo, já extraído)
 Desafio Técnico - GenAI.zip
 
+# Imagens soltas geradas localmente (ex.: figuras exportadas à parte de um
+# notebook/qmd) — os .html finais já embutem as figuras inline, então isso
+# aqui é só rascunho de exploração, não artefato do projeto.
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.webp
+
 # OS
 .DS_Store
 Thumbs.db
